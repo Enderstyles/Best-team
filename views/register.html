@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+    <style>
+        .container {
+            max-width: 500px;
+        }
+        .signup_tittle {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    
+    <div class="container mt-5">
+        <form action="/register" method="post">
+
+            <h4 class="signup_tittle">SIGN UP</h4>
+            <hr/>
+
+            {{ if . }}
+                <div class="alert alert-success">
+                    {{ . }}
+                </div>
+                <hr/>
+            {{ end }}
+
+            <div class="form-group">
+                <label for="">Full Name</label>
+                <input type="text" name="full_name" value="{{ .user.NamaLengkap }}" class="form-control {{ if .validation.FullName }} is-invalid {{ end }}">
+                <div class="invalid-feedback">
+                    {{ . }}
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="">Email</label>
+                <input type="text" name="email" value="{{ .user.Email }}" class="form-control {{ if .validation.Email }} is-invalid {{ end }}">
+                <div class="invalid-feedback">
+                    {{ . }}
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="">Username</label>
+                <input type="text" name="username" value="{{ .user.Username }}" class="form-control {{ if .validation.Username }} is-invalid {{ end }}">
+                <div class="invalid-feedback">
+                    {{ . }}
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="">Password</label>
+                <input type="password" name="password" value="{{ .user.Password }}" class="form-control {{ if .validation.Password }} is-invalid {{ end }}">
+                <div class="invalid-feedback">
+                    {{ .validation.Password }}
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="">Confirm Password</label>
+                <input type="password" name="cpassword" value="{{ .user.Cpassword }}" class="form-control {{ if .validation.Cpassword }} is-invalid {{ end }}">
+                <div class="invalid-feedback">
+                    {{ .validation.Cpassword }}
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-success btn-block">SIGN UP</button>
+            <hr/>
+            <center>
+                <p>Do you already have an account? <a href="/login">Login</a></p>
+            </center>
+        </form>
+    </div>
+
+</body>
+</html>
