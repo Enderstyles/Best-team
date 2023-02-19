@@ -2,14 +2,47 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title></title>
+    <title>Login</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+    <style>
+        .container {
+            max-width: 500px;
+        }
+        .signup_tittle {
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
-    <h1>Login Page</h1>
-    <form method="POST" action="/login">
-        <input type="text" name="username" placeholder="username">
-        <input type="password" name="password" placeholder="password">
-        <input type="submit" value="Submit">
-    </form>
+        <div class="container mt-5">
+        <form action="/login" method="post">
+
+            <h4 class="login_tittle">Login</h4>
+            <hr/>
+
+            <div class="form-group">
+                <label for="">Username</label>
+                <input type="text" name="username" class="form-control">
+                <div class="invalid-feedback">
+                    {{ . }}
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="">Password</label>
+                <input type="password" name="password" class="form-control">
+                <div class="invalid-feedback">
+                    {{ . }}
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-success btn-block">ENTER</button>
+            <hr/>
+            <center>
+                <p>Are you not registered? <a href="/register">Register</a></p>
+            </center>
+        </form>
+    </div>
 </body>
 </html>
