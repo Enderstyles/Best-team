@@ -1,15 +1,67 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title></title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+    <style>
+        .container {
+            max-width: 500px;
+        }
+        .signup_tittle {
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
-    <h1>Sign up</h1>
-    <form method="POST" action="/signup">
-        <input type="text" name="username">
-        <input type="password" name="password">
-        <input type="submit" value="Submit">
-    </form>
+    
+    <div class="container mt-5">
+        <form action="/register" method="post">
+
+            <h4 class="signup_tittle">Register</h4>
+            <hr/>
+
+            <div class="form-group">
+                <label for="">Full Name</label>
+                <input type="text" name="full_name" class="form-control">
+                <div class="invalid-feedback">
+                    {{ . }}
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="">Email</label>
+                <input type="text" name="email" class="form-control">
+                <div class="invalid-feedback">
+                    {{ . }}
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="">Username</label>
+                <input type="text" name="username" class="form-control">
+                <div class="invalid-feedback">
+                    {{ . }}
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="">Password</label>
+                <input type="password" name="password" class="form-control">
+                <div class="invalid-feedback">
+                    {{ .validation.Password }}
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-success btn-block">SIGN UP</button>
+            <hr/>
+            <center>
+                <p>Do you already have an account? <a href="/login">Login</a></p>
+            </center>
+        </form>
+    </div>
+
 </body>
 </html>
