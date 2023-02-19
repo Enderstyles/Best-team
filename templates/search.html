@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>My Blog</title>
+  </head>
+  <body>
+    <h1>My Blog</h1>
+    <form action="/search" method="GET">
+      <input type="text" name="query" placeholder="Search posts...">
+      <input type="submit" value="Search">
+    </form>
+    <hr>
+    {{range .}}
+    <div>
+      <h2><a href="/post/{{.ID}}">{{.Title}}</a></h2>
+      <p>{{.Content}}</p>
+    </div>
+    {{else}}
+    <p>No posts found.</p>
+    {{end}}
+  </body>
+</html>

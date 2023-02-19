@@ -3,10 +3,13 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"html/template"
+	"net/http"
+	"strings"
+
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
-	"net/http"
 )
 
 type User struct {
@@ -16,6 +19,9 @@ type User struct {
 	Username string
 	Password string
 }
+
+var tmpl = template.Must(template.ParseFiles("templates/search.html"))
+
 
 func Connect() error {
 	var err error
@@ -114,13 +120,86 @@ func login(w http.ResponseWriter, r *http.Request) {
 func home(res http.ResponseWriter, req *http.Request) {
 	http.ServeFile(res, req, "views/index.html")
 }
+type Post struct {
+    ID      int
+    Title   string
+    Content string
+}
+// searchPosts handles the search form submission
+func searchPosts(w http.ResponseWriter, r *http.Request) {
+	// Get the search query from the form submission
+	query := r.FormValue("query")
 
+	// Get the list of posts matching the search query
+	posts, err := search(query)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Execute the "search" template with the list of posts
+	tmpl, err := template.ParseFiles("templates/search.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	err = tmpl.Execute(w, posts)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// search queries the database for posts matching the search query
+func search(query string) ([]Post, error) {
+	// Split the search query into individual words
+	words := strings.Split(query, " ")
+
+	// Build the search query
+	var where []string
+	var args []interface{}
+	for _, word := range words {
+		if len(word) > 0 {
+			where = append(where, "MATCH(title,content) AGAINST(? IN BOOLEAN MODE)")
+			args = append(args, word+"*")
+		}
+	}
+	if len(where) == 0 {
+		return nil, nil
+	}
+	whereStr := strings.Join(where, " OR ")
+	queryStr := fmt.Sprintf("SELECT id, title, content FROM posts WHERE %s", whereStr)
+
+	// Execute the search query
+	rows, err := db.Query(queryStr, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Build the list of posts from the search results
+	var posts []Post
+	for rows.Next() {
+		var post Post
+		err := rows.Scan(&post.ID, &post.Title, &post.Content)
+		if err != nil {
+			return nil, err
+		}
+		posts = append(posts, post)
+	}
+	err = rows.Err()
+	if err != nil {
+		return nil, err
+	}
+
+	return posts, nil
+}
 func main() {
 	Connect()
 
 	r := mux.NewRouter()
 
-	// Register routes
+	r.HandleFunc("/search",searchPosts)
 	r.HandleFunc("/register", register)
 	r.HandleFunc("/login", login)
 	r.HandleFunc("/", home)
