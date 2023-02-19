@@ -11,6 +11,8 @@ import (
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 )
+var db *sql.DB
+var err error
 
 type User struct {
 	ID       int
@@ -19,26 +21,30 @@ type User struct {
 	Username string
 	Password string
 }
-
-var tmpl = template.Must(template.ParseFiles("templates/search.html"))
-
+type Post struct {
+    ID      int
+    Title   string
+    Content string
+}
 
 func Connect() error {
 	var err error
+	// Connecting to mysql db 
 	db, err = sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/golang_project")
 	if err != nil {
 		fmt.Println(err)
 	}
-
+	// Getting all users
 	res, err := db.Query("SELECT * FROM users")
 
 	if err != nil {
 		return err
 	}
 
+	// Printing information of all users
 	for res.Next() {
 		var user User
-		err := res.Scan(&user.Username, &user.Password)
+		err := res.Scan(&user.Username, &user.Password, &user.Email, &user.Fullname)
 
 		if err != nil {
 			return err
@@ -48,8 +54,6 @@ func Connect() error {
 	return nil
 }
 
-var db *sql.DB
-var err error
 
 func register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
@@ -117,27 +121,24 @@ func login(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
+// Home page
 func home(res http.ResponseWriter, req *http.Request) {
 	http.ServeFile(res, req, "views/index.html")
 }
-type Post struct {
-    ID      int
-    Title   string
-    Content string
-}
-// searchPosts handles the search form submission
+
+
 func searchPosts(w http.ResponseWriter, r *http.Request) {
-	// Get the search query from the form submission
+	// Getting the search query from the form
 	query := r.FormValue("query")
 
-	// Get the list of posts matching the search query
+	// Getting the list of posts from search query
 	posts, err := search(query)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Execute the "search" template with the list of posts
+	// Execute search template with the list of posts
 	tmpl, err := template.ParseFiles("templates/search.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -150,12 +151,11 @@ func searchPosts(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// search queries the database for posts matching the search query
 func search(query string) ([]Post, error) {
 	// Split the search query into individual words
 	words := strings.Split(query, " ")
 
-	// Build the search query
+	// Building the search query
 	var where []string
 	var args []interface{}
 	for _, word := range words {
@@ -170,14 +170,14 @@ func search(query string) ([]Post, error) {
 	whereStr := strings.Join(where, " OR ")
 	queryStr := fmt.Sprintf("SELECT id, title, content FROM posts WHERE %s", whereStr)
 
-	// Execute the search query
+	// Executing the search query
 	rows, err := db.Query(queryStr, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	// Build the list of posts from the search results
+	// Building the list of posts
 	var posts []Post
 	for rows.Next() {
 		var post Post
