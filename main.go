@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"regexp"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 	"golang.org/x/crypto/bcrypt"
 )
+
 var db *sql.DB
 var err error
 
@@ -22,14 +24,14 @@ type User struct {
 	Password string
 }
 type Post struct {
-    ID      int
-    Title   string
-    Content string
+	ID      int
+	Title   string
+	Content string
 }
 
 func Connect() error {
 	var err error
-	// Connecting to mysql db 
+	// Connecting to mysql db
 	db, err = sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/golang_project")
 	if err != nil {
 		fmt.Println(err)
@@ -54,7 +56,6 @@ func Connect() error {
 	return nil
 }
 
-
 func register(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.ServeFile(w, r, "views/register.html")
@@ -71,6 +72,39 @@ func register(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	username := r.FormValue("username")
 	password := r.FormValue("password")
+
+	// Check for required fields
+	if full_name == "" || email == "" || username == "" || password == "" {
+		http.Error(w, "Required field is missing", http.StatusBadRequest)
+		return
+	}
+
+	// Check for correct email format
+	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+	if !emailRegex.MatchString(email) {
+		http.Error(w, "Please enter the correct email address", http.StatusBadRequest)
+		return
+	}
+
+	// Check for full name format
+	nameRegex := regexp.MustCompile(`^[a-zA-Z] + [a-zA-Z]+$`)
+	if !nameRegex.MatchString(full_name) {
+		http.Error(w, "The full user name must contain: 'First name' and 'Last Name' required", http.StatusBadRequest)
+		return
+	}
+
+	// Check for length of user name
+	if len(username) < 5 || len(username) > 30 {
+		http.Error(w, "The length of the user name must be from 5 to 30 characters", http.StatusBadRequest)
+		return
+	}
+
+	// Check for length of password and character requirements
+	passRegex := regexp.MustCompile(`^(?=.*[A-Z])(?=.*[0-9])(?=.*[a-z]).{8,30}$`)
+	if !passRegex.MatchString(password) {
+		http.Error(w, "The password length must be from 8 to 30 characters and include one capital letter, one character, and one digit", http.StatusBadRequest)
+		return
+	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	_, err = db.Exec("INSERT INTO users (full_name, email, username, password) VALUES (?, ?, ?, ?)", full_name, email, username, hashedPassword)
@@ -122,10 +156,9 @@ func login(w http.ResponseWriter, r *http.Request) {
 }
 
 // Home page
-func home(res http.ResponseWriter, req *http.Request) {
-	http.ServeFile(res, req, "views/index.html")
+func home(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "views/index.html")
 }
-
 
 func searchPosts(w http.ResponseWriter, r *http.Request) {
 	// Getting the search query from the form
@@ -199,7 +232,7 @@ func main() {
 
 	r := mux.NewRouter()
 
-	r.HandleFunc("/search",searchPosts)
+	r.HandleFunc("/search", searchPosts)
 	r.HandleFunc("/register", register)
 	r.HandleFunc("/login", login)
 	r.HandleFunc("/", home)
