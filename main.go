@@ -23,10 +23,11 @@ type User struct {
 	Username string
 	Password string
 }
-type Post struct {
+type Items struct {
 	ID      int
-	Title   string
+	Name   	string
 	Content string
+	Picture string
 }
 
 func Connect() error {
@@ -141,6 +142,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 	}
 	row := db.QueryRow("SELECT id, username, password FROM users WHERE username = ?", username)
 	err = row.Scan(&user.ID, &user.Username, &user.Password)
+	
 	if err != nil {
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		return
@@ -160,31 +162,31 @@ func home(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "views/index.html")
 }
 
-func searchPosts(w http.ResponseWriter, r *http.Request) {
+func searchitems(w http.ResponseWriter, r *http.Request) {
 	// Getting the search query from the form
 	query := r.FormValue("query")
 
-	// Getting the list of posts from search query
-	posts, err := search(query)
+	// Getting the list of items from search query
+	items, err := search(query)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Execute search template with the list of posts
+	// Execute search template with the list of items
 	tmpl, err := template.ParseFiles("templates/search.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	err = tmpl.Execute(w, posts)
+	err = tmpl.Execute(w, items)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
-func search(query string) ([]Post, error) {
+func search(query string) ([]Items, error) {
 	// Split the search query into individual words
 	words := strings.Split(query, " ")
 
@@ -193,7 +195,7 @@ func search(query string) ([]Post, error) {
 	var args []interface{}
 	for _, word := range words {
 		if len(word) > 0 {
-			where = append(where, "MATCH(title,content) AGAINST(? IN BOOLEAN MODE)")
+			where = append(where, "MATCH(name,content) AGAINST(? IN BOOLEAN MODE)")
 			args = append(args, word+"*")
 		}
 	}
@@ -201,7 +203,7 @@ func search(query string) ([]Post, error) {
 		return nil, nil
 	}
 	whereStr := strings.Join(where, " OR ")
-	queryStr := fmt.Sprintf("SELECT id, title, content FROM posts WHERE %s", whereStr)
+	queryStr := fmt.Sprintf("SELECT id, name, content, picture FROM items WHERE %s", whereStr)
 
 	// Executing the search query
 	rows, err := db.Query(queryStr, args...)
@@ -210,29 +212,29 @@ func search(query string) ([]Post, error) {
 	}
 	defer rows.Close()
 
-	// Building the list of posts
-	var posts []Post
+	// Building the list of items
+	var items []Items
 	for rows.Next() {
-		var post Post
-		err := rows.Scan(&post.ID, &post.Title, &post.Content)
+		var item Items
+		err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture)
 		if err != nil {
 			return nil, err
 		}
-		posts = append(posts, post)
+		items = append(items, item)
 	}
 	err = rows.Err()
 	if err != nil {
 		return nil, err
 	}
 
-	return posts, nil
+	return items, nil
 }
 func main() {
 	Connect()
 
 	r := mux.NewRouter()
 
-	r.HandleFunc("/search", searchPosts)
+	r.HandleFunc("/search", searchitems)
 	r.HandleFunc("/register", register)
 	r.HandleFunc("/login", login)
 	r.HandleFunc("/", home)

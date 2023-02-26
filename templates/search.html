@@ -1,22 +1,43 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <title>My Blog</title>
+    <title>Search results</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js" integrity="sha384-IQsoLXl5PILFhosVNubq5LC7Qb9DXgDA9i+tQ8Zj3iwWAwPtgFTxbJ8NT4GN1R8p" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.min.js" integrity="sha384-cVKIPhGWiC2Al4u+LWgxfKTRIcfu0JTxR+EQDz/bgldoEyl4H0zUF0QKbrJ0EcQF" crossorigin="anonymous"></script>
+
+    <style>
+      .item{
+        margin-top: 50px;
+        border-color: black;
+        border-radius: 3px;
+        border-width: 1px;
+        border-style: solid;
+      }
+    </style>
   </head>
   <body>
-    <h1>My Blog</h1>
+    <h1>Search results</h1>
     <form action="/search" method="GET">
-      <input type="text" name="query" placeholder="Search posts...">
+      <input type="text" name="query" placeholder="Search items...">
       <input type="submit" value="Search">
     </form>
     <hr>
-    {{range .}}
-    <div>
-      <h2><a href="/post/{{.ID}}">{{.Title}}</a></h2>
-      <p>{{.Content}}</p>
-    </div>
-    {{else}}
-    <p>No posts found.</p>
-    {{end}}
+    <div class="container justify-content-center">
+      {{range .}}
+      
+      <div id="Item" class="item">
+        <h2>{{.Name}}</h2>
+        <p>{{.Content}}</p>
+        {{if .Picture}}
+        <img alt="pic{{.ID}}" src="{{.Picture}}" width="500px" height="500px">
+        {{end}}
+      </div>
+      {{else}}
+      <p>No items found.</p>
+      {{end}}
+      <img alt="one" src="E:/Git/Best-team/data/pictures/pic1.jpg" width="100px" height="100px">
+      </div>
   </body>
 </html>
