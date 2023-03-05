@@ -9,5 +9,8 @@ Askhat Al-Aziz:
  - Added Home button on Search page :D 
 
 Medeubekov Sergazy:
+ - Added Home button on Login and Register page
+ - Fixed errors in user validation
+ - I'm going to make a profile for the user
 
 Kadyrbekov Aslan:
