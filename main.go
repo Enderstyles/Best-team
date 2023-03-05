@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"html/template"
+	"io"
 	"net/http"
+	"os"
 	"regexp"
 	"strings"
 
@@ -88,11 +90,11 @@ func register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check for full name format
-	nameRegex := regexp.MustCompile(`^[a-zA-Z] + [a-zA-Z]+$`)
-	if !nameRegex.MatchString(full_name) {
-		http.Error(w, "The full user name must contain: 'First name' and 'Last Name' required", http.StatusBadRequest)
-		return
-	}
+	// nameRegex := regexp.MustCompile(`^[a-zA-Z] + [a-zA-Z]+$`)
+	// if !nameRegex.MatchString(full_name) {
+	// 	http.Error(w, "The full user name must contain: 'First name' and 'Last Name' required", http.StatusBadRequest)
+	// 	return
+	// }
 
 	// Check for length of user name
 	if len(username) < 5 || len(username) > 30 {
@@ -203,7 +205,7 @@ func search(query string) ([]Items, error) {
 		return nil, nil
 	}
 	whereStr := strings.Join(where, " OR ")
-	queryStr := fmt.Sprintf("SELECT id, name, content, picture FROM items WHERE %s", whereStr)
+	queryStr := fmt.Sprintf("SELECT name, content, picture FROM items WHERE %s", whereStr)
 
 	// Executing the search query
 	rows, err := db.Query(queryStr, args...)
@@ -216,7 +218,7 @@ func search(query string) ([]Items, error) {
 	var items []Items
 	for rows.Next() {
 		var item Items
-		err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture)
+		err := rows.Scan(&item.Name, &item.Content, &item.Picture)
 		if err != nil {
 			return nil, err
 		}
@@ -229,11 +231,91 @@ func search(query string) ([]Items, error) {
 
 	return items, nil
 }
+func allPosts(w http.ResponseWriter, r *http.Request){
+	rows, err := db.Query("SELECT name, content, picture FROM Items")
+	if err != nil{
+		panic(err.Error())
+	}
+	defer rows.Close()
+
+	var items[] Items
+	for rows.Next() {
+		var item Items 
+		err = rows.Scan(&item.Name, &item.Content,&item.Picture)
+		if err != nil {
+			panic(err.Error())
+		}
+		items = append(items,item)
+	}
+
+	tmpl, err := template.ParseFiles("templates/search.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	err = tmpl.Execute(w, items)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+func createItem(w http.ResponseWriter, r *http.Request){
+	if r.Method != "POST"{
+		http.ServeFile(w,r,"views/create_item.html")
+		return
+	}
+	err := r.ParseMultipartForm(10<<20)
+	if err != nil {
+		http.Error(w,err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	//getting values from form
+	name := r.FormValue("name")
+	content := r.FormValue("content")
+	
+	if name == "" || content == "" {
+		http.Error(w,"Required field is missing", http.StatusBadRequest)
+	}
+
+	//getting image from form
+	file, handler, err := r.FormFile("img")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	//creating file on server side to save image
+	f, err := os.OpenFile("C:/xampp/htdocs/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer f.Close()
+
+	//copy the uploaded img to ne file
+	_, err = io.Copy(f,file)
+	if err != nil{
+		http.Error(w,err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	//inserting img path to db
+	file_location := fmt.Sprintf("%s%s","pictures/",handler.Filename)
+	_, err = db.Exec("INSERT INTO Items (name, content, picture) VALUES(?,?,?)", name, content, file_location)
+	if err != nil {
+		http.Error(w,err.Error(), http.StatusInternalServerError)
+	}
+	http.Redirect(w,r,"/feed",http.StatusCreated)
+}
+
 func main() {
 	Connect()
 
 	r := mux.NewRouter()
-
+	r.HandleFunc("/create_item", createItem)
+	r.HandleFunc("/feed", allPosts)
 	r.HandleFunc("/search", searchitems)
 	r.HandleFunc("/register", register)
 	r.HandleFunc("/login", login)
