@@ -16,7 +16,6 @@ import (
 )
 
 var db *sql.DB
-var err error
 
 type User struct {
 	ID       int
@@ -110,6 +109,11 @@ func register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	_, err = db.Exec("INSERT INTO users (full_name, email, username, password) VALUES (?, ?, ?, ?)", full_name, email, username, hashedPassword)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -205,7 +209,7 @@ func search(query string) ([]Items, error) {
 		return nil, nil
 	}
 	whereStr := strings.Join(where, " OR ")
-	queryStr := fmt.Sprintf("SELECT name, content, picture FROM items WHERE %s", whereStr)
+	queryStr := fmt.Sprintf("SELECT id,name, content, picture FROM items WHERE %s", whereStr)
 
 	// Executing the search query
 	rows, err := db.Query(queryStr, args...)
@@ -218,12 +222,16 @@ func search(query string) ([]Items, error) {
 	var items []Items
 	for rows.Next() {
 		var item Items
-		err := rows.Scan(&item.Name, &item.Content, &item.Picture)
+		err := rows.Scan(&item.ID,&item.Name, &item.Content, &item.Picture)
 		if err != nil {
 			return nil, err
 		}
 		items = append(items, item)
 	}
+	for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
+		items[i], items[j] = items[j], items[i]
+	}
+	
 	err = rows.Err()
 	if err != nil {
 		return nil, err
@@ -232,7 +240,7 @@ func search(query string) ([]Items, error) {
 	return items, nil
 }
 func allPosts(w http.ResponseWriter, r *http.Request){
-	rows, err := db.Query("SELECT name, content, picture FROM Items")
+	rows, err := db.Query("SELECT id,name, content, picture FROM Items")
 	if err != nil{
 		panic(err.Error())
 	}
@@ -240,14 +248,17 @@ func allPosts(w http.ResponseWriter, r *http.Request){
 
 	var items[] Items
 	for rows.Next() {
-		var item Items 
-		err = rows.Scan(&item.Name, &item.Content,&item.Picture)
+		var item Items
+		err = rows.Scan(&item.ID,&item.Name, &item.Content,&item.Picture)
+		
 		if err != nil {
 			panic(err.Error())
 		}
 		items = append(items,item)
 	}
-
+	for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
+		items[i], items[j] = items[j], items[i]
+	}
 	tmpl, err := template.ParseFiles("templates/search.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -276,6 +287,7 @@ func createItem(w http.ResponseWriter, r *http.Request){
 	
 	if name == "" || content == "" {
 		http.Error(w,"Required field is missing", http.StatusBadRequest)
+		return
 	}
 
 	//getting image from form
@@ -287,14 +299,14 @@ func createItem(w http.ResponseWriter, r *http.Request){
 	defer file.Close()
 
 	//creating file on server side to save image
-	f, err := os.OpenFile("C:/xampp/htdocs/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
+	f, err := os.OpenFile("C:/xampp/htdocs/pictures/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer f.Close()
 
-	//copy the uploaded img to ne file
+	//copy the uploaded img to file
 	_, err = io.Copy(f,file)
 	if err != nil{
 		http.Error(w,err.Error(), http.StatusInternalServerError)
@@ -306,8 +318,9 @@ func createItem(w http.ResponseWriter, r *http.Request){
 	_, err = db.Exec("INSERT INTO Items (name, content, picture) VALUES(?,?,?)", name, content, file_location)
 	if err != nil {
 		http.Error(w,err.Error(), http.StatusInternalServerError)
+		return
 	}
-	http.Redirect(w,r,"/feed",http.StatusCreated)
+	http.Redirect(w,r,"/feed",http.StatusFound)
 }
 
 func main() {
@@ -321,6 +334,6 @@ func main() {
 	r.HandleFunc("/login", login)
 	r.HandleFunc("/", home)
 
-	fmt.Print("Server path: http://localhost:3000")
-	http.ListenAndServe(":3000", r)
+	fmt.Println("Server path: http://192.168.0.112:3000")
+	http.ListenAndServe("192.168.0.112:3000", r)
 }
