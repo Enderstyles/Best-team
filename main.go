@@ -5,17 +5,22 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
+	"unicode"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var db *sql.DB
+
+var store = sessions.NewCookieStore([]byte("secret-key"))
 
 type User struct {
 	ID       int
@@ -26,7 +31,7 @@ type User struct {
 }
 type Items struct {
 	ID      int
-	Name   	string
+	Name    string
 	Content string
 	Picture string
 }
@@ -48,18 +53,18 @@ func Connect() error {
 	// Printing information of all users
 	for res.Next() {
 		var user User
-		err := res.Scan(&user.Username, &user.Password, &user.Email, &user.Fullname)
+		err := res.Scan(&user.ID, &user.Username, &user.Password, &user.Email, &user.Fullname)
 
 		if err != nil {
 			return err
 		}
-		fmt.Println("%\n", user)
+		fmt.Println(user)
 	}
 	return nil
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
+	if r.Method != http.MethodPost {
 		http.ServeFile(w, r, "views/register.html")
 		return
 	}
@@ -70,13 +75,13 @@ func register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	full_name := r.FormValue("full_name")
+	fullName := r.FormValue("fullName")
 	email := r.FormValue("email")
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 
 	// Check for required fields
-	if full_name == "" || email == "" || username == "" || password == "" {
+	if fullName == "" || email == "" || username == "" || password == "" {
 		http.Error(w, "Required field is missing", http.StatusBadRequest)
 		return
 	}
@@ -88,12 +93,12 @@ func register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for full name format
-	// nameRegex := regexp.MustCompile(`^[a-zA-Z] + [a-zA-Z]+$`)
-	// if !nameRegex.MatchString(full_name) {
-	// 	http.Error(w, "The full user name must contain: 'First name' and 'Last Name' required", http.StatusBadRequest)
-	// 	return
-	// }
+	//Check for full name format
+	nameRegex := regexp.MustCompile(`^[a-zA-Z]+\s+[a-zA-Z]+$`)
+	if !nameRegex.MatchString(fullName) {
+		http.Error(w, "The full user name must contain: 'First name' and 'Last Name' required", http.StatusBadRequest)
+		return
+	}
 
 	// Check for length of user name
 	if len(username) < 5 || len(username) > 30 {
@@ -101,10 +106,27 @@ func register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for length of password and character requirements
-	passRegex := regexp.MustCompile(`^(?=.*[A-Z])(?=.*[0-9])(?=.*[a-z]).{8,30}$`)
-	if !passRegex.MatchString(password) {
-		http.Error(w, "The password length must be from 8 to 30 characters and include one capital letter, one character, and one digit", http.StatusBadRequest)
+	if len(password) < 8 {
+		http.Error(w, "Password must be at least 8 characters long", http.StatusBadRequest)
+		return
+	}
+
+	hasNumber := false
+	hasUpper := false
+	hasLower := false
+	for _, c := range password {
+		switch {
+		case unicode.IsNumber(c):
+			hasNumber = true
+		case unicode.IsUpper(c):
+			hasUpper = true
+		case unicode.IsLower(c):
+			hasLower = true
+		}
+	}
+
+	if !(hasNumber && hasUpper && hasLower) {
+		http.Error(w, "Password must contain at least one digit, uppercase letter, lowercase letter", http.StatusBadRequest)
 		return
 	}
 
@@ -114,7 +136,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO users (full_name, email, username, password) VALUES (?, ?, ?, ?)", full_name, email, username, hashedPassword)
+	_, err = db.Exec("INSERT INTO users (full_name, email, username, password) VALUES (?, ?, ?, ?)", fullName, email, username, hashedPassword)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -125,7 +147,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
+	if r.Method != http.MethodPost {
 		http.ServeFile(w, r, "views/login.html")
 		return
 	}
@@ -140,22 +162,19 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 	// Retrieve user from database
 	var user User
-
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
-	if err != nil {
-		http.Redirect(w, r, "/", http.StatusMovedPermanently)
-		return
-	}
-	row := db.QueryRow("SELECT id, username, password FROM users WHERE username = ?", username)
-	err = row.Scan(&user.ID, &user.Username, &user.Password)
-	
-	if err != nil {
+	row := db.QueryRow("SELECT username, password FROM users WHERE username = ?", username)
+	err = row.Scan(&user.Username, &user.Password)
+	if err == sql.ErrNoRows {
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+		return
+	} else if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Check password
-	if user.Password != password {
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if err != nil {
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		return
 	}
@@ -222,7 +241,7 @@ func search(query string) ([]Items, error) {
 	var items []Items
 	for rows.Next() {
 		var item Items
-		err := rows.Scan(&item.ID,&item.Name, &item.Content, &item.Picture)
+		err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture)
 		if err != nil {
 			return nil, err
 		}
@@ -231,7 +250,7 @@ func search(query string) ([]Items, error) {
 	for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
 		items[i], items[j] = items[j], items[i]
 	}
-	
+
 	err = rows.Err()
 	if err != nil {
 		return nil, err
@@ -239,22 +258,22 @@ func search(query string) ([]Items, error) {
 
 	return items, nil
 }
-func allPosts(w http.ResponseWriter, r *http.Request){
+func allPosts(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query("SELECT id,name, content, picture FROM Items")
-	if err != nil{
+	if err != nil {
 		panic(err.Error())
 	}
 	defer rows.Close()
 
-	var items[] Items
+	var items []Items
 	for rows.Next() {
 		var item Items
-		err = rows.Scan(&item.ID,&item.Name, &item.Content,&item.Picture)
-		
+		err = rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture)
+
 		if err != nil {
 			panic(err.Error())
 		}
-		items = append(items,item)
+		items = append(items, item)
 	}
 	for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
 		items[i], items[j] = items[j], items[i]
@@ -270,23 +289,23 @@ func allPosts(w http.ResponseWriter, r *http.Request){
 		return
 	}
 }
-func createItem(w http.ResponseWriter, r *http.Request){
-	if r.Method != "POST"{
-		http.ServeFile(w,r,"views/create_item.html")
+func createItem(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.ServeFile(w, r, "views/create_item.html")
 		return
 	}
-	err := r.ParseMultipartForm(10<<20)
+	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
-		http.Error(w,err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	//getting values from form
 	name := r.FormValue("name")
 	content := r.FormValue("content")
-	
+
 	if name == "" || content == "" {
-		http.Error(w,"Required field is missing", http.StatusBadRequest)
+		http.Error(w, "Required field is missing", http.StatusBadRequest)
 		return
 	}
 
@@ -307,33 +326,47 @@ func createItem(w http.ResponseWriter, r *http.Request){
 	defer f.Close()
 
 	//copy the uploaded img to file
-	_, err = io.Copy(f,file)
-	if err != nil{
-		http.Error(w,err.Error(), http.StatusInternalServerError)
+	_, err = io.Copy(f, file)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	//inserting img path to db
-	file_location := fmt.Sprintf("%s%s","pictures/",handler.Filename)
+	file_location := fmt.Sprintf("%s%s", "pictures/", handler.Filename)
 	_, err = db.Exec("INSERT INTO Items (name, content, picture) VALUES(?,?,?)", name, content, file_location)
 	if err != nil {
-		http.Error(w,err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w,r,"/feed",http.StatusFound)
+	http.Redirect(w, r, "/feed", http.StatusFound)
 }
 
 func main() {
-	Connect()
+	// Connecting to mysql
+	err := Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/create_item", createItem)
-	r.HandleFunc("/feed", allPosts)
-	r.HandleFunc("/search", searchitems)
-	r.HandleFunc("/register", register)
-	r.HandleFunc("/login", login)
+
+	r.HandleFunc("/register", register).Methods("GET", "POST")
+	r.HandleFunc("/login", login).Methods("GET", "POST")
+
 	r.HandleFunc("/", home)
 
-	fmt.Println("Server path: http://192.168.0.112:3000")
-	http.ListenAndServe("192.168.0.112:3000", r)
+	r.HandleFunc("/search", searchitems)
+	r.HandleFunc("/create_item", createItem)
+	r.HandleFunc("/feed", allPosts)
+
+	// Serve static files
+	fs := http.FileServer(http.Dir("static/"))
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fs))
+
+	fmt.Println("Server path: http://localhost:3000")
+	http.ListenAndServe(":3000", r)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
