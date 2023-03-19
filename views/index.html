@@ -24,6 +24,7 @@
           flex-direction: column;
           justify-content: center;
           align-items: center;
+          padding-top: 250px;
         }
         .lead {
           text-align: center;
@@ -32,7 +33,6 @@
     </style>
   </head>
   <body>
-    
     <div class="cover-container d-flex w-100 h-100 p-3 mx-auto flex-column">
       <header class="masthead mb-auto">
           <div class="navbar">
@@ -40,11 +40,11 @@
             <nav class="nav nav-masthead justify-content-center">
                 <a class="nav-link active" href="/">Home</a>
                 <a class="nav-link" href="#">About us</a>
-                <a class="nav-link" href="/login">Login</a>
                 <a class="nav-link" href="/feed">Feed</a>
                 <a class="nav-link" href="/create_item">Create Item</a>
             </nav>
-            <div style="margin-top: 20px;">
+            <div style="display: flex; align-items: center;">
+              <a class="nav-link" href="/login">Login</a>
               <form action="/search" method="GET">
                   <input type="text" id="query" name="query" placeholder="write item">
                   <input type="submit" value="SEARCH">
