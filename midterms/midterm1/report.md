@@ -1,5 +1,5 @@
 Explanation of the code:
 
 
-![1](https://github.com/Enderstyles/Best-team/data/pictures/screen1.jpg)
-![2](https://github.com/Enderstyles/Best-team/data/pictures/screen2.jpg)
+!([https://github.com/Enderstyles/Best-team/data/pictures/screen1.jpg](https://github.com/Enderstyles/Best-team/blob/main/data/pictures/pic1.jpg)
+!
