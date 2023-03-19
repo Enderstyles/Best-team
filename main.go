@@ -43,23 +43,6 @@ func Connect() error {
 	if err != nil {
 		fmt.Println(err)
 	}
-	// Getting all users
-	res, err := db.Query("SELECT * FROM users")
-
-	if err != nil {
-		return err
-	}
-
-	// Printing information of all users
-	for res.Next() {
-		var user User
-		err := res.Scan(&user.ID, &user.Username, &user.Password, &user.Email, &user.Fullname)
-
-		if err != nil {
-			return err
-		}
-		
-	}
 	return nil
 }
 
