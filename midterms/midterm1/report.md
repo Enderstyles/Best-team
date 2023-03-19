@@ -1,5 +1,26 @@
-# Explanation of the code:
+# Introduction to the service
+We are the "Best Team" team developing e-commerce web applications, and so far we have implemented only the basis of the application, that is, only the basic attributes of the service such as: home page, user authorization, item search, post feed. In the future, with the progress of our site, we will gradually draw out the concept of our site.
 
+# Team members description, contributions of each team member
+## Medeubekov Sergazy ID:200103154 :
+Implemented user registration and login functions, made html pages for them and for the homepage, corrected errors that appeared during development.
+
+## Askhat Al-Aziz ID:200103463 :
+Developer and fixer of "Search" and "CreateItem" functions. I have created pages for them and made them mobile adaptable. Fixer of login error.
+
+# Explanation how to run the code:
+Start by creating a MySQL database:
+Using the XAMPP Control Panel, run the modules: Apache and MySQL, MySQL port must be: 3306
+Press the "admin" button on MySQL and go to the phpmyadmin page and there:
+Create database "golang_project" and in it create table users with this structure:
+![32](https://github.com/Enderstyles/Best-team/blob/main/data/pictures/userstable.png)
+Then table items with the following structure:
+![33](https://github.com/Enderstyles/Best-team/blob/main/data/pictures/itemstable.png)
+For the search page to work properly. You need to install xampp at "C:/" and create the folder "pictures" at "C:/xampp/htdocs/pictures "
+
+Once you have created the database, you can run a terminal in main.go and use "go run main.go" to run the code and go to the localhost page: http://localhost:3000
+
+# Explanation of the code:
 ## Connect function
  - Connect function is for connectiong to database of out project. Nothing special\
 ![1](https://github.com/Enderstyles/Best-team/blob/main/data/pictures/screen001.jpg)
