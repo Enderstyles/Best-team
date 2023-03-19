@@ -58,7 +58,7 @@ func Connect() error {
 		if err != nil {
 			return err
 		}
-		fmt.Println(user)
+		
 	}
 	return nil
 }
@@ -228,7 +228,7 @@ func search(query string) ([]Items, error) {
 		return nil, nil
 	}
 	whereStr := strings.Join(where, " OR ")
-	queryStr := fmt.Sprintf("SELECT id,name, content, picture FROM items WHERE %s", whereStr)
+	queryStr := fmt.Sprintf("SELECT id, name, content, picture FROM items WHERE %s", whereStr)
 
 	// Executing the search query
 	rows, err := db.Query(queryStr, args...)
