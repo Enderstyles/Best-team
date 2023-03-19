@@ -160,6 +160,12 @@ func login(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 
+	// Check for required fields
+	if username == "" || password == "" {
+		http.Error(w, "Username and Password are required", http.StatusBadRequest)
+		return
+	}
+
 	// Retrieve user from database
 	var user User
 	row := db.QueryRow("SELECT username, password FROM users WHERE username = ?", username)
