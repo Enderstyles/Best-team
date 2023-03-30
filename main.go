@@ -34,6 +34,7 @@ type Items struct {
 	Name    string
 	Content string
 	Picture string
+	Price   string
 }
 
 func Connect() error {
@@ -180,12 +181,28 @@ func searchitems(w http.ResponseWriter, r *http.Request) {
 	// Getting the search query from the form
 	query := r.FormValue("query")
 
-	// Getting the list of items from search query
-	items, err := search(query)
+	rows, err := db.Query("SELECT id, name, content, picture, price FROM items WHERE name LIKE ?", "%"+query+"%")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	defer rows.Close()
+
+	var items []Items
+	for rows.Next() {
+		var item Items
+		if err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Getting the list of items from search query
 
 	// Execute search template with the list of items
 	tmpl, err := template.ParseFiles("templates/search.html")
@@ -217,7 +234,7 @@ func search(query string) ([]Items, error) {
 		return nil, nil
 	}
 	whereStr := strings.Join(where, " OR ")
-	queryStr := fmt.Sprintf("SELECT id, name, content, picture FROM items WHERE %s", whereStr)
+	queryStr := fmt.Sprintf("SELECT id, name, content, picture, price FROM items WHERE %s", whereStr)
 
 	// Executing the search query
 	rows, err := db.Query(queryStr, args...)
@@ -230,7 +247,7 @@ func search(query string) ([]Items, error) {
 	var items []Items
 	for rows.Next() {
 		var item Items
-		err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture)
+		err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price)
 		if err != nil {
 			return nil, err
 		}
@@ -247,8 +264,9 @@ func search(query string) ([]Items, error) {
 
 	return items, nil
 }
+
 func allPosts(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT id,name, content, picture FROM Items")
+	rows, err := db.Query("SELECT id, name, content, picture, price FROM Items")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -257,7 +275,7 @@ func allPosts(w http.ResponseWriter, r *http.Request) {
 	var items []Items
 	for rows.Next() {
 		var item Items
-		err = rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture)
+		err = rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price)
 
 		if err != nil {
 			panic(err.Error())
@@ -292,8 +310,9 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 	//getting values from form
 	name := r.FormValue("name")
 	content := r.FormValue("content")
+	price := r.FormValue("price")
 
-	if name == "" || content == "" {
+	if name == "" || content == "" || price == "" {
 		http.Error(w, "Required field is missing", http.StatusBadRequest)
 		return
 	}
@@ -323,7 +342,7 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 
 	//inserting img path to db
 	file_location := fmt.Sprintf("%s%s", "pictures/", handler.Filename)
-	_, err = db.Exec("INSERT INTO Items (name, content, picture) VALUES(?,?,?)", name, content, file_location)
+	_, err = db.Exec("INSERT INTO Items (name, content, picture, price) VALUES(?,?,?,?)", name, content, file_location, price)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
