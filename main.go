@@ -176,77 +176,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "views/index.html")
 }
 
-func searchitems(w http.ResponseWriter, r *http.Request) {
-	// Getting the search query from the form
-	query := r.FormValue("query")
 
-	rows, err := db.Query("SELECT id, name, content, picture, price FROM items WHERE name LIKE ?", "%"+query+"%")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var items []Items
-	for rows.Next() {
-		var item Items
-		if err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	// Getting the list of items from search query
-
-	// Execute search template with the list of items
-	tmpl, err := template.ParseFiles("templates/search.html")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	err = tmpl.Execute(w, items)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
-func allPosts(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT id, name, content, picture, price FROM Items")
-	if err != nil {
-		panic(err.Error())
-	}
-	defer rows.Close()
-
-	var items []Items
-	for rows.Next() {
-		var item Items
-		err = rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price)
-
-		if err != nil {
-			panic(err.Error())
-		}
-		items = append(items, item)
-	}
-	for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
-		items[i], items[j] = items[j], items[i]
-	}
-	tmpl, err := template.ParseFiles("templates/search.html")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	err = tmpl.Execute(w, items)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
 func createItem(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.ServeFile(w, r, "views/create_item.html")
@@ -292,8 +222,8 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//inserting img path to db
-	file_location := fmt.Sprintf("%s%s", "pictures/", handler.Filename)
-	_, err = db.Exec("INSERT INTO Items (name, content, picture, price) VALUES(?,?,?,?)", name, content, file_location, price)
+	fileLocation := fmt.Sprintf("%s%s", "pictures/", handler.Filename)
+	_, err = db.Exec("INSERT INTO Items (name, content, picture, price) VALUES(?,?,?,?)", name, content, fileLocation, price)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -301,41 +231,108 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/feed", http.StatusFound)
 }
 
-func minmax(w http.ResponseWriter, r *http.Request){
-    min := r.FormValue("min")
-    max := r.FormValue("max")
+func searchitems(w http.ResponseWriter, r *http.Request) {
+    // Getting the search query from the form
+    query := r.FormValue("query")
 
-    rows,err := db.Query("SELECT * FROM items WHERE price BETWEEN ? AND ?", min,max)
-    if err != nil{
-        http.Error(w,err.Error(), http.StatusInternalServerError)
+    rows, err := db.Query("SELECT id, name, content, picture, price FROM items WHERE name LIKE ?", "%"+query+"%")
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
     defer rows.Close()
 
+    items, err := getItems(rows)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    err = executeTemplate(w, "templates/search.html", items)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+}
+
+func allItems(w http.ResponseWriter, r *http.Request) {
+    rows, err := db.Query("SELECT id, name, content, picture, price FROM Items")
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    defer rows.Close()
+
+    items, err := getItems(rows)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    reverseItems(items)
+
+    err = executeTemplate(w, "templates/search.html", items)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+}
+
+func minmax(w http.ResponseWriter, r *http.Request) {
+    min := r.FormValue("min")
+    max := r.FormValue("max")
+
+    rows, err := db.Query("SELECT id, name, content, picture, price FROM items WHERE price BETWEEN ? AND ?", min, max)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    defer rows.Close()
+
+    items, err := getItems(rows)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    err = executeTemplate(w, "templates/search.html", items)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+}
+
+func getItems(rows *sql.Rows) ([]Items, error) {
     var items []Items
-    for rows.Next(){
+    for rows.Next() {
         var item Items
-        if err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price); err != nil{
-            http.Error(w,err.Error(), http.StatusInternalServerError)
-            return
+        if err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price); err != nil {
+            return nil, err
         }
         items = append(items, item)
     }
-    fmt.Print(items)
-    if err := rows.Err(); err != nil{
-        http.Error(w,err.Error(), http.StatusInternalServerError)
-        return
+    if err := rows.Err(); err != nil {
+        return nil, err
     }
-    tmpl, err := template.ParseFiles("templates/search.html")
+    return items, nil
+}
+
+func reverseItems(items []Items) {
+    for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
+        items[i], items[j] = items[j], items[i]
+    }
+}
+
+func executeTemplate(w http.ResponseWriter, tmpl string, data interface{}) error {
+    t, err := template.ParseFiles(tmpl)
     if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
+        return err
     }
-    err = tmpl.Execute(w, items)
+    err = t.Execute(w, data)
     if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
+        return err
     }
+    return nil
 }
 
 func main() {
@@ -355,7 +352,7 @@ func main() {
 	r.HandleFunc("/filter", minmax)
 	r.HandleFunc("/search", searchitems)
 	r.HandleFunc("/create_item", createItem)
-	r.HandleFunc("/feed", allPosts)
+	r.HandleFunc("/feed", allItems)
 
 	// Serve static files
 	fs := http.FileServer(http.Dir("static/"))
