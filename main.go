@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"regexp"
-	"strings"
 	"unicode"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -217,54 +216,6 @@ func searchitems(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func search(query string) ([]Items, error) {
-	// Split the search query into individual words
-	words := strings.Split(query, " ")
-
-	// Building the search query
-	var where []string
-	var args []interface{}
-	for _, word := range words {
-		if len(word) > 0 {
-			where = append(where, "MATCH(name,content) AGAINST(? IN BOOLEAN MODE)")
-			args = append(args, word+"*")
-		}
-	}
-	if len(where) == 0 {
-		return nil, nil
-	}
-	whereStr := strings.Join(where, " OR ")
-	queryStr := fmt.Sprintf("SELECT id, name, content, picture, price FROM items WHERE %s", whereStr)
-
-	// Executing the search query
-	rows, err := db.Query(queryStr, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	// Building the list of items
-	var items []Items
-	for rows.Next() {
-		var item Items
-		err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, item)
-	}
-	for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
-		items[i], items[j] = items[j], items[i]
-	}
-
-	err = rows.Err()
-	if err != nil {
-		return nil, err
-	}
-
-	return items, nil
-}
-
 func allPosts(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query("SELECT id, name, content, picture, price FROM Items")
 	if err != nil {
@@ -350,6 +301,43 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/feed", http.StatusFound)
 }
 
+func minmax(w http.ResponseWriter, r *http.Request){
+    min := r.FormValue("min")
+    max := r.FormValue("max")
+
+    rows,err := db.Query("SELECT * FROM items WHERE price BETWEEN ? AND ?", min,max)
+    if err != nil{
+        http.Error(w,err.Error(), http.StatusInternalServerError)
+        return
+    }
+    defer rows.Close()
+
+    var items []Items
+    for rows.Next(){
+        var item Items
+        if err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price); err != nil{
+            http.Error(w,err.Error(), http.StatusInternalServerError)
+            return
+        }
+        items = append(items, item)
+    }
+    fmt.Print(items)
+    if err := rows.Err(); err != nil{
+        http.Error(w,err.Error(), http.StatusInternalServerError)
+        return
+    }
+    tmpl, err := template.ParseFiles("templates/search.html")
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    err = tmpl.Execute(w, items)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+}
+
 func main() {
 	// Connecting to mysql
 	err := Connect()
@@ -364,6 +352,7 @@ func main() {
 
 	r.HandleFunc("/", home)
 
+	r.HandleFunc("/filter", minmax)
 	r.HandleFunc("/search", searchitems)
 	r.HandleFunc("/create_item", createItem)
 	r.HandleFunc("/feed", allPosts)

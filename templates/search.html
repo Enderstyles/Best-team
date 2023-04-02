@@ -24,16 +24,17 @@
             </ul>
             <form class="d-flex ms-auto p-2" action="/search" method="GET">
               <input class="form-control me-2" type="text" name="query" placeholder="Search items...">
+              <div class="d-flex justify-content-center">
+                <form class="d-flex ">
+                    <input type="text" class="form-control" name="min" id="floating-min" placeholder="min">
+                </form>
+                <form class="d-flex ">
+                    <input type="text" class="form-control" name="max" id="floating-max" placeholder="max">
+                </form>
+              </div>
               <button class="btn btn-outline-success" type="submit">Search</button>
             </form>
-            <div class="d-flex justify-content-center">
-              <form class="d-flex ">
-                <input type="text" class="form-control" name="min" id="floating-min" placeholder="min">
-              </form>
-              <form class="d-flex ">
-                <input type="text" class="form-control" name="max" id="floating-max" placeholder="max">
-              </form>
-            </div>
+            
           </div>
         </div>
       </nav>
