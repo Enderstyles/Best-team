@@ -12,7 +12,10 @@ import (
 	"unicode"
 
 	_ "github.com/go-sql-driver/mysql"
+	//"github.com/gorilla/context"
 	"github.com/gorilla/mux"
+
+	//"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -151,8 +154,9 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 	// Retrieve user from database
 	var user User
-	row := db.QueryRow("SELECT username, password FROM users WHERE username = ?", username)
-	err = row.Scan(&user.Username, &user.Password)
+
+	row := db.QueryRow("SELECT id, username, password FROM users WHERE username = ?", username)
+	err = row.Scan(&user.ID,&user.Username, &user.Password)
 	if err == sql.ErrNoRows {
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		return
@@ -189,12 +193,14 @@ func login(w http.ResponseWriter, r *http.Request) {
 func profile(w http.ResponseWriter, r *http.Request) {
 	session, err := store.Get(r, "session")
 	if err != nil {
+		fmt.Println("session error")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Check if the user is authenticated
 	if _, ok := session.Values["authenticated"]; !ok {
+		fmt.Println("CHECK USER ERROR")
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
@@ -204,8 +210,9 @@ func profile(w http.ResponseWriter, r *http.Request) {
 
 	// Get the user's information from the database
 	user := User{}
-	err = db.QueryRow("SELECT * FROM users WHERE id = ?", userID).Scan(&user.ID, &user.Fullname, &user.Email, &user.Username)
+	err = db.QueryRow("SELECT id, full_name, email, username FROM users WHERE id = ?", userID).Scan(&user.ID, &user.Fullname, &user.Email, &user.Username)
 	if err != nil {
+		fmt.Println("GET USER ERROR : ", userID)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -213,6 +220,7 @@ func profile(w http.ResponseWriter, r *http.Request) {
 	// Display the user's information on the profile page
 	t, err := template.ParseFiles("views/profile.html")
 	if err != nil {
+		fmt.Println("template error")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
