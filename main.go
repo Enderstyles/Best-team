@@ -168,12 +168,78 @@ func login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.Redirect(w, r, "/", http.StatusFound)
+	// Add the user ID to the session
+	session, err := store.Get(r, "session")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	session.Values["authenticated"] = true
+	session.Values["userID"] = user.ID
+	err = session.Save(r, w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Redirect the user to the profile page
+	http.Redirect(w, r, "/profile", http.StatusSeeOther)
+}
+
+func profile(w http.ResponseWriter, r *http.Request) {
+	session, err := store.Get(r, "session")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Check if the user is authenticated
+	if _, ok := session.Values["authenticated"]; !ok {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+
+	// Get the user's ID from the session
+	userID := session.Values["userID"].(int)
+
+	// Get the user's information from the database
+	user := User{}
+	err = db.QueryRow("SELECT * FROM users WHERE id = ?", userID).Scan(&user.ID, &user.Fullname, &user.Email, &user.Username)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Display the user's information on the profile page
+	t, err := template.ParseFiles("views/profile.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	t.Execute(w, user)
+}
+
+func logout(w http.ResponseWriter, r *http.Request) {
+	session, _ := store.Get(r, "session")
+	session.Options.MaxAge = -1
+	err := session.Save(r, w)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 // Home page
 func home(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "views/index.html")
+	tpl, err := template.ParseFiles("views/index.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	tpl.Execute(w, nil)
 }
 
 func searchitems(w http.ResponseWriter, r *http.Request) {
@@ -301,41 +367,41 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/feed", http.StatusFound)
 }
 
-func minmax(w http.ResponseWriter, r *http.Request){
-    min := r.FormValue("min")
-    max := r.FormValue("max")
+func minmax(w http.ResponseWriter, r *http.Request) {
+	min := r.FormValue("min")
+	max := r.FormValue("max")
 
-    rows,err := db.Query("SELECT * FROM items WHERE price BETWEEN ? AND ?", min,max)
-    if err != nil{
-        http.Error(w,err.Error(), http.StatusInternalServerError)
-        return
-    }
-    defer rows.Close()
+	rows, err := db.Query("SELECT * FROM items WHERE price BETWEEN ? AND ?", min, max)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
 
-    var items []Items
-    for rows.Next(){
-        var item Items
-        if err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price); err != nil{
-            http.Error(w,err.Error(), http.StatusInternalServerError)
-            return
-        }
-        items = append(items, item)
-    }
-    fmt.Print(items)
-    if err := rows.Err(); err != nil{
-        http.Error(w,err.Error(), http.StatusInternalServerError)
-        return
-    }
-    tmpl, err := template.ParseFiles("templates/search.html")
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    err = tmpl.Execute(w, items)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+	var items []Items
+	for rows.Next() {
+		var item Items
+		if err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		items = append(items, item)
+	}
+	fmt.Print(items)
+	if err := rows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	tmpl, err := template.ParseFiles("templates/search.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	err = tmpl.Execute(w, items)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func main() {
@@ -349,6 +415,8 @@ func main() {
 
 	r.HandleFunc("/register", register).Methods("GET", "POST")
 	r.HandleFunc("/login", login).Methods("GET", "POST")
+	r.HandleFunc("/profile", profile)
+	r.HandleFunc("/logout", logout)
 
 	r.HandleFunc("/", home)
 

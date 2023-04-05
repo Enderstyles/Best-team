@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -43,13 +43,24 @@
                 <a class="nav-link" href="/feed">Feed</a>
                 <a class="nav-link" href="/create_item">Create Item</a>
             </nav>
+            {{if .authenticated}}
             <div style="display: flex; align-items: center;">
+              <a class="nav-link" href="/profile">Profile</a>
+              <a class="nav-link" href="/logout">Logout</a>
+              <form action="/search" method="GET">
+                  <input type="text" id="query" name="query" placeholder="write item">
+                  <input type="submit" value="SEARCH">
+              </form>
+          </div>
+          {{else}}
+          <div style="display: flex; align-items: center;">
               <a class="nav-link" href="/login">Login</a>
               <form action="/search" method="GET">
                   <input type="text" id="query" name="query" placeholder="write item">
                   <input type="submit" value="SEARCH">
               </form>
           </div>
+          {{end}}
           </div>
       </header>
 
