@@ -132,6 +132,37 @@ func register(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
+func isLoggedIn(r *http.Request) bool {
+    // check if the user is logged in by checking if the session contains a user ID
+    session, err := store.Get(r, "session-name")
+    if err != nil {
+        // handle the error
+        return false
+    }
+    userID, ok := session.Values["user_id"].(int)
+    if !ok || userID == 0 {
+        return false
+    }
+    // the user is logged in
+    return true
+}
+
+func requireLogin(next http.HandlerFunc) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("IN requireLogin:")
+        fmt.Println("\tURL:", r.URL.Path)
+        fmt.Println("\tLogged in:", isLoggedIn(r))
+        // check if user is logged in
+        if !isLoggedIn(r) {
+            // redirect to login page
+            http.Redirect(w, r, "/login", http.StatusSeeOther)
+            return
+        }
+        // call the next handler function
+        next(w, r)
+    }
+}	
+
 func login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.ServeFile(w, r, "views/login.html")
@@ -252,10 +283,13 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 
 func createItem(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("URL:", r.URL.Path)
+	
 	if r.Method != http.MethodPost {
 		http.ServeFile(w, r, "views/create_item.html")
 		return
 	}
+
 	err := r.ParseMultipartForm(10 << 20)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -330,7 +364,18 @@ func searchitems(w http.ResponseWriter, r *http.Request) {
 }
 
 func allItems(w http.ResponseWriter, r *http.Request) {
-    rows, err := db.Query("SELECT id, name, content, picture, price FROM Items")
+    session, err := store.Get(r, "session")
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    userID, ok := session.Values["userID"].(int)
+    if !ok {
+        http.Error(w, "Unauthorized", http.StatusUnauthorized)
+        return
+    }
+	fmt.Print("AllItems ",userID)
+	rows, err := db.Query("SELECT id, name, content, picture, price FROM Items")
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
@@ -426,9 +471,9 @@ func main() {
 	r.HandleFunc("/", home)
 
 	r.HandleFunc("/filter", minmax)
-	r.HandleFunc("/search", searchitems)
-	r.HandleFunc("/create_item", createItem)
-	r.HandleFunc("/feed", allItems)
+	r.HandleFunc("/search", requireLogin(searchitems))
+	r.HandleFunc("/create_item", requireLogin(createItem))
+	r.HandleFunc("/feed", requireLogin(allItems))
 
 	// Serve static files
 	fs := http.FileServer(http.Dir("static/"))
