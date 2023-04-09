@@ -134,13 +134,15 @@ func register(w http.ResponseWriter, r *http.Request) {
 
 func isLoggedIn(r *http.Request) bool {
     // check if the user is logged in by checking if the session contains a user ID
-    session, err := store.Get(r, "session-name")
+    session, err := store.Get(r, "session")
     if err != nil {
         // handle the error
         return false
     }
-    userID, ok := session.Values["user_id"].(int)
+    userID, ok := session.Values["userID"].(int)
+	fmt.Println("\nIN isLoggedIn :\nsession:  ",session)
     if !ok || userID == 0 {
+		fmt.Println("\nIN isLoggedIn:\n",ok,userID)
         return false
     }
     // the user is logged in
@@ -211,7 +213,9 @@ func login(w http.ResponseWriter, r *http.Request) {
 	}
 	session.Values["authenticated"] = true
 	session.Values["userID"] = user.ID
+	fmt.Println("\nIn login:\n\tUSER ID:",user.ID)
 	err = session.Save(r, w)
+	fmt.Println("In login:\n session: ", session)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -277,7 +281,13 @@ func home(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
+	session, err := store.Get(r, "session")
+	if err != nil {
+		fmt.Println("session error")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Println("In home:\nsession: ", session)
 	tpl.Execute(w, nil)
 }
 
@@ -300,38 +310,41 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 	content := r.FormValue("content")
 	price := r.FormValue("price")
+	tags := r.FormValue("tags")
 
-	if name == "" || content == "" || price == "" {
+	if name == "" || content == "" || price == "" || tags == ""{
 		http.Error(w, "Required field is missing", http.StatusBadRequest)
 		return
 	}
-
+	
 	//getting image from form
 	file, handler, err := r.FormFile("img")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		//creating file on server side to save image
+		f, err := os.OpenFile("C:/xampp/htdocs/pictures/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer f.Close()
+
+		//copy the uploaded img to file
+		_, err = io.Copy(f, file)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		//inserting img path to db
+		fileLocation := fmt.Sprintf("%s%s", "pictures/", handler.Filename)
+		_, err = db.Exec("INSERT INTO Items (name, content, picture, price, tags) VALUES(?,?,?,?,?)", name, content, fileLocation, price, tags)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 	defer file.Close()
-
-	//creating file on server side to save image
-	f, err := os.OpenFile("C:/xampp/htdocs/pictures/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer f.Close()
-
-	//copy the uploaded img to file
-	_, err = io.Copy(f, file)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	//inserting img path to db
-	fileLocation := fmt.Sprintf("%s%s", "pictures/", handler.Filename)
-	_, err = db.Exec("INSERT INTO Items (name, content, picture, price) VALUES(?,?,?,?)", name, content, fileLocation, price)
+	_, err = db.Exec("INSERT INTO Items (name, content, price, tags) VALUES(?,?,?,?)", name, content, price, tags)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -364,17 +377,7 @@ func searchitems(w http.ResponseWriter, r *http.Request) {
 }
 
 func allItems(w http.ResponseWriter, r *http.Request) {
-    session, err := store.Get(r, "session")
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    userID, ok := session.Values["userID"].(int)
-    if !ok {
-        http.Error(w, "Unauthorized", http.StatusUnauthorized)
-        return
-    }
-	fmt.Print("AllItems ",userID)
+    
 	rows, err := db.Query("SELECT id, name, content, picture, price FROM Items")
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
