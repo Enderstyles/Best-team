@@ -37,6 +37,11 @@ type Items struct {
 	Content string
 	Picture string
 	Price   string
+	Tags 	string
+}
+type Tags struct {
+	ID 		int 
+	Name 	string
 }
 
 func Connect() error {
@@ -294,7 +299,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 
 func createItem(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("URL:", r.URL.Path)
-	
+
 	if r.Method != http.MethodPost {
 		http.ServeFile(w, r, "views/create_item.html")
 		return
@@ -312,15 +317,27 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 	price := r.FormValue("price")
 	tags := r.FormValue("tags")
 
-	if name == "" || content == "" || price == "" || tags == ""{
+	if name == "" || content == "" || price == "" || tags == "" {
 		http.Error(w, "Required field is missing", http.StatusBadRequest)
 		return
 	}
-	
+
 	//getting image from form
 	file, handler, err := r.FormFile("img")
-	if err != nil {
-		//creating file on server side to save image
+	if err == http.ErrMissingFile {
+		_, err = db.Exec("INSERT INTO Items (name, content, price, tags) VALUES(?,?,?,?)", name, content, price, tags)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		defer http.Redirect(w, r, "/feed", http.StatusFound)
+	} else if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	} else {
+		defer file.Close()
+
 		f, err := os.OpenFile("C:/xampp/htdocs/pictures/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -342,21 +359,17 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		defer http.Redirect(w, r, "/feed", http.StatusFound)
 	}
-	defer file.Close()
-	_, err = db.Exec("INSERT INTO Items (name, content, price, tags) VALUES(?,?,?,?)", name, content, price, tags)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	http.Redirect(w, r, "/feed", http.StatusFound)
 }
 
 func searchitems(w http.ResponseWriter, r *http.Request) {
     // Getting the search query from the form
     query := r.FormValue("query")
 
-    rows, err := db.Query("SELECT id, name, content, picture, price FROM items WHERE name LIKE ?", "%"+query+"%")
+    rows, err := db.Query("SELECT * FROM items WHERE name LIKE ? OR content LIKE ? OR tags LIKE ?", "%"+query+"%", "%"+query+"%", "%"+query+"%")
+
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
@@ -378,7 +391,7 @@ func searchitems(w http.ResponseWriter, r *http.Request) {
 
 func allItems(w http.ResponseWriter, r *http.Request) {
     
-	rows, err := db.Query("SELECT id, name, content, picture, price FROM Items")
+	rows, err := db.Query("SELECT * FROM Items")
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
@@ -404,7 +417,7 @@ func minmax(w http.ResponseWriter, r *http.Request) {
     min := r.FormValue("min")
     max := r.FormValue("max")
 
-    rows, err := db.Query("SELECT id, name, content, picture, price FROM items WHERE price BETWEEN ? AND ?", min, max)
+    rows, err := db.Query("SELECT * FROM items WHERE price BETWEEN ? AND ?", min, max)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
@@ -428,7 +441,7 @@ func getItems(rows *sql.Rows) ([]Items, error) {
     var items []Items
     for rows.Next() {
         var item Items
-        if err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price); err != nil {
+        if err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price, &item.Tags); err != nil {
             return nil, err
         }
         items = append(items, item)
@@ -457,6 +470,33 @@ func executeTemplate(w http.ResponseWriter, tmpl string, data interface{}) error
     return nil
 }
 
+func tagsPage(w http.ResponseWriter, r *http.Request){
+	rows, err := db.Query("SELECT name FROM tags")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	var tags []Tags
+	
+	for rows.Next(){
+		var tag Tags
+		if err := rows.Scan(&tag.Name); err != nil{
+			http.Error(w,err.Error(), http.StatusInternalServerError)
+			return
+		}
+		tags = append(tags, tag)
+	}
+	if err := rows.Err(); err != nil{
+		http.Error(w,err.Error(), http.StatusInternalServerError)
+		return
+	}
+	err = executeTemplate(w,"templates/tags.html", tags)
+	if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+}
+
 func main() {
 	// Connecting to mysql
 	err := Connect()
@@ -477,6 +517,8 @@ func main() {
 	r.HandleFunc("/search", requireLogin(searchitems))
 	r.HandleFunc("/create_item", requireLogin(createItem))
 	r.HandleFunc("/feed", requireLogin(allItems))
+	r.HandleFunc("/tags", requireLogin(tagsPage))
+
 
 	// Serve static files
 	fs := http.FileServer(http.Dir("static/"))
