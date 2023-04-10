@@ -40,7 +40,6 @@
     </header>
     <hr>
     <div class="container">
-      
       <div class="row g-3 d-flex justify-content-center">
         {{range .}}
         <div id="Item" class="col-8 col-md-4 col-xl-3" >
@@ -53,6 +52,7 @@
             <div class="card-body">
               <h2 class="card-title">{{.Name}}</h2>
               <p class="card-text">{{.Content}}</p>
+              <p class="card-text"><small class="text-muted">{{.Tags}}</small></p>
               <p>Price: {{.Price}}</p>
               <a href="#" class="btn btn-primary">add</a>
             </div>

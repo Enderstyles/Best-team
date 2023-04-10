@@ -37,6 +37,11 @@ type Items struct {
 	Content string
 	Picture string
 	Price   string
+	Tags    string
+}
+type Tags struct {
+	ID   int
+	Name string
 }
 
 func Connect() error {
@@ -319,8 +324,20 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 
 	//getting image from form
 	file, handler, err := r.FormFile("img")
-	if err != nil {
-		//creating file on server side to save image
+	if err == http.ErrMissingFile {
+		_, err = db.Exec("INSERT INTO Items (name, content, price, tags) VALUES(?,?,?,?)", name, content, price, tags)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		defer http.Redirect(w, r, "/feed", http.StatusFound)
+	} else if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	} else {
+		defer file.Close()
+
 		f, err := os.OpenFile("C:/xampp/htdocs/pictures/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -342,14 +359,9 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		defer http.Redirect(w, r, "/feed", http.StatusFound)
 	}
-	defer file.Close()
-	_, err = db.Exec("INSERT INTO Items (name, content, price, tags) VALUES(?,?,?,?)", name, content, price, tags)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	http.Redirect(w, r, "/feed", http.StatusFound)
 }
 
 func searchitems(w http.ResponseWriter, r *http.Request) {
@@ -457,6 +469,33 @@ func executeTemplate(w http.ResponseWriter, tmpl string, data interface{}) error
 	return nil
 }
 
+func tagsPage(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.Query("SELECT name FROM tags")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	var tags []Tags
+
+	for rows.Next() {
+		var tag Tags
+		if err := rows.Scan(&tag.Name); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		tags = append(tags, tag)
+	}
+	if err := rows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	err = executeTemplate(w, "templates/tags.html", tags)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func main() {
 	// Connecting to mysql
 	err := Connect()
@@ -477,6 +516,7 @@ func main() {
 	r.HandleFunc("/search", requireLogin(searchitems))
 	r.HandleFunc("/create_item", requireLogin(createItem))
 	r.HandleFunc("/feed", requireLogin(allItems))
+	r.HandleFunc("/tags", requireLogin(tagsPage))
 
 	// Serve static files
 	fs := http.FileServer(http.Dir("static/"))
