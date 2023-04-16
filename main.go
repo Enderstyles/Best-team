@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 	"unicode"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -38,14 +39,21 @@ type Items struct {
 	Picture string
 	Price   string
 	Tags    string
+	Rating  float64
 }
 type Tags struct {
 	ID   int
 	Name string
 }
 type PageData struct {
-	Items[] Items
-	Tags [] Tags
+	Items []Items
+	Tags  []Tags
+}
+type Ratings struct {
+	ID      int
+	User_id int
+	Item_id int
+	Value   int
 }
 
 func Connect() error {
@@ -372,7 +380,7 @@ func searchitems(w http.ResponseWriter, r *http.Request) {
 	// Getting the search query from the form
 	query := r.FormValue("query")
 
-	rows, err := db.Query("SELECT id, name, content, picture, price FROM items WHERE name LIKE ?", "%"+query+"%")
+	rows, err := db.Query("SELECT id, name, content, picture, price, tags, rating FROM items WHERE name LIKE ?", "%"+query+"%")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -384,104 +392,100 @@ func searchitems(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-    
-	pages, err := template.ParseFiles("templates/search.html")
-    if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
 
-	
+	pages, err := template.ParseFiles("templates/search.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	tags := getTags()
 	var pagedata = PageData{
 		Items: items,
-		Tags: tags,
+		Tags:  tags,
 	}
 	err = pages.Execute(w, pagedata)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+		return
+	}
 }
 
 func allItems(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query("SELECT * FROM items")
-    items, err := getItems(rows)
+	items, err := getItems(rows)
 
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-
-    reverseItems(items)
-    
-	pages, err := template.ParseFiles("templates/search.html")
-    if err != nil {
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+		return
+	}
 
-	
+	reverseItems(items)
+
+	pages, err := template.ParseFiles("templates/search.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	tags := getTags()
 	var pagedata = PageData{
 		Items: items,
-		Tags: tags,
+		Tags:  tags,
 	}
 	err = pages.Execute(w, pagedata)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+		return
+	}
 
-
-    // err = pages.Execute(w, items)
-    // if err != nil {
+	// err = pages.Execute(w, items)
+	// if err != nil {
 	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-    //     return
-    // }
+	//     return
+	// }
 }
 
 func minmax(w http.ResponseWriter, r *http.Request) {
 	min := r.FormValue("min")
 	max := r.FormValue("max")
 
-	rows, err := db.Query("SELECT id, name, content, picture, price FROM items WHERE price BETWEEN ? AND ?", min, max)
+	rows, err := db.Query("SELECT id, name, content, picture, price, tags, rating FROM items WHERE price BETWEEN ? AND ?", min, max)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
-    items, err := getItems(rows)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-	page, err := template.ParseFiles("templates/search.html")
-    if err != nil {
+	items, err := getItems(rows)
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+		return
+	}
+	page, err := template.ParseFiles("templates/search.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-	
 	tags := getTags()
 	var pagedata = PageData{
 		Items: items,
-		Tags: tags,
+		Tags:  tags,
 	}
 	err = page.Execute(w, pagedata)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    
+		return
+	}
+
 }
 
 func getItems(rows *sql.Rows) ([]Items, error) {
 	var items []Items
 	for rows.Next() {
 		var item Items
-		if err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price); err != nil {
+		if err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price, &item.Tags, &item.Rating); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -498,7 +502,7 @@ func reverseItems(items []Items) {
 	}
 }
 
-func getTags() []Tags{
+func getTags() []Tags {
 	rows, err := db.Query("SELECT name FROM tags")
 	if err != nil {
 		return nil
@@ -507,28 +511,75 @@ func getTags() []Tags{
 
 	for rows.Next() {
 		var tag Tags
-		if err := rows.Scan(&tag.Name); err != nil{
+		if err := rows.Scan(&tag.Name); err != nil {
 			return nil
 		}
 		tags = append(tags, tag)
 	}
-	if err := rows.Err(); err != nil{
+	if err := rows.Err(); err != nil {
 		return nil
 	}
 	return tags
 }
 
-func tagsPage(w http.ResponseWriter, r *http.Request){
+func tagsPage(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFiles("templates/tags.html")
-    if err != nil {
-		   http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    err = t.Execute(w,getTags())
-    if err != nil {
-		   http.Error(w, err.Error(), http.StatusInternalServerError)
-        return 
-    }
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	err = t.Execute(w, getTags())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func rate(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	itemID := vars["id"]
+	ratingValue := r.FormValue("rating")
+	// проверяем, что пользователь авторизован
+	session, err := store.Get(r, "session")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	userID, ok := session.Values["userID"].(int)
+	if !ok || userID == 0 {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// проверяем, что оценка является целым числом от 1 до 5
+	rating, err := strconv.Atoi(ratingValue)
+	if err != nil || rating < 1 || rating > 5 {
+		http.Error(w, "Invalid rating value", http.StatusBadRequest)
+		return
+	}
+
+	// добавляем оценку в базу данных
+	_, err = db.Exec("INSERT INTO ratings (user_id, item_id, value) VALUES (?, ?, ?)", userID, itemID, rating)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// обновляем среднюю оценку рейтинга для товара
+	var avgRating float64
+	err = db.QueryRow("SELECT AVG(value) FROM ratings WHERE item_id=?", itemID).Scan(&avgRating)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	_, err = db.Exec("UPDATE items SET rating=? WHERE id=?", avgRating, itemID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// перенаправляем пользователя на страницу товара
+	http.Redirect(w, r, "/items/"+itemID, http.StatusSeeOther)
 }
 
 func main() {

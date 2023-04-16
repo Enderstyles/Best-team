@@ -77,6 +77,18 @@
               <p class="card-text">{{.Content}}</p>
               <p class="card-text"><small class="text-muted">{{.Tags}}</small></p>
               <p>Price: {{.Price}}</p>
+              <p>Rating: {{.Rating}}</p>
+              <form method="POST" action="/rate/{{.ID}}">
+                <select name="rating">
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              <input type="submit" value="Rate">
+              </form>
+              <br>
               <a href="#" class="btn btn-primary">add</a>
             </div>
           </div>
