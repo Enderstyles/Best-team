@@ -37,11 +37,11 @@ type Items struct {
 	Content string
 	Picture string
 	Price   string
-	Tags 	string
+	Tags    string
 }
 type Tags struct {
-	ID 		int 
-	Name 	string
+	ID   int
+	Name string
 }
 type PageData struct {
 	Items[] Items
@@ -142,37 +142,37 @@ func register(w http.ResponseWriter, r *http.Request) {
 }
 
 func isLoggedIn(r *http.Request) bool {
-    // check if the user is logged in by checking if the session contains a user ID
-    session, err := store.Get(r, "session")
-    if err != nil {
-        // handle the error
-        return false
-    }
-    userID, ok := session.Values["userID"].(int)
-	fmt.Println("\nIN isLoggedIn :\nsession:  ",session)
-    if !ok || userID == 0 {
-		fmt.Println("\nIN isLoggedIn:\n",ok,userID)
-        return false
-    }
-    // the user is logged in
-    return true
+	// check if the user is logged in by checking if the session contains a user ID
+	session, err := store.Get(r, "session")
+	if err != nil {
+		// handle the error
+		return false
+	}
+	userID, ok := session.Values["userID"].(int)
+	fmt.Println("\nIN isLoggedIn :\nsession:  ", session)
+	if !ok || userID == 0 {
+		fmt.Println("\nIN isLoggedIn:\n", ok, userID)
+		return false
+	}
+	// the user is logged in
+	return true
 }
 
 func requireLogin(next http.HandlerFunc) http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("IN requireLogin:")
-        fmt.Println("\tURL:", r.URL.Path)
-        fmt.Println("\tLogged in:", isLoggedIn(r))
-        // check if user is logged in
-        if !isLoggedIn(r) {
-            // redirect to login page
-            http.Redirect(w, r, "/login", http.StatusSeeOther)
-            return
-        }
-        // call the next handler function
-        next(w, r)
-    }
-}	
+		fmt.Println("\tURL:", r.URL.Path)
+		fmt.Println("\tLogged in:", isLoggedIn(r))
+		// check if user is logged in
+		if !isLoggedIn(r) {
+			// redirect to login page
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		// call the next handler function
+		next(w, r)
+	}
+}
 
 func login(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -198,7 +198,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 	var user User
 
 	row := db.QueryRow("SELECT id, username, password FROM users WHERE username = ?", username)
-	err = row.Scan(&user.ID,&user.Username, &user.Password)
+	err = row.Scan(&user.ID, &user.Username, &user.Password)
 	if err == sql.ErrNoRows {
 		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
 		return
@@ -222,7 +222,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 	}
 	session.Values["authenticated"] = true
 	session.Values["userID"] = user.ID
-	fmt.Println("\nIn login:\n\tUSER ID:",user.ID)
+	fmt.Println("\nIn login:\n\tUSER ID:", user.ID)
 	err = session.Save(r, w)
 	fmt.Println("In login:\n session: ", session)
 	if err != nil {
@@ -290,6 +290,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	session, err := store.Get(r, "session")
 	if err != nil {
 		fmt.Println("session error")
@@ -299,7 +300,6 @@ func home(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("In home:\nsession: ", session)
 	tpl.Execute(w, nil)
 }
-
 
 func createItem(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("URL:", r.URL.Path)
@@ -369,22 +369,21 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func searchitems(w http.ResponseWriter, r *http.Request) {
-    // Getting the search query from the form
-    query := r.FormValue("query")
+	// Getting the search query from the form
+	query := r.FormValue("query")
 
-    rows, err := db.Query("SELECT * FROM items WHERE name LIKE ? OR content LIKE ? OR tags LIKE ?", "%"+query+"%", "%"+query+"%", "%"+query+"%")
+	rows, err := db.Query("SELECT id, name, content, picture, price FROM items WHERE name LIKE ?", "%"+query+"%")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
 
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    defer rows.Close()
-
-    items, err := getItems(rows)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+	items, err := getItems(rows)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
     
 	pages, err := template.ParseFiles("templates/search.html")
     if err != nil {
@@ -406,14 +405,7 @@ func searchitems(w http.ResponseWriter, r *http.Request) {
 }
 
 func allItems(w http.ResponseWriter, r *http.Request) {
-    
-	rows, err := db.Query("SELECT * FROM Items")
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    defer rows.Close()
-
+	rows, err := db.Query("SELECT * FROM items")
     items, err := getItems(rows)
 
     if err != nil {
@@ -450,15 +442,15 @@ func allItems(w http.ResponseWriter, r *http.Request) {
 }
 
 func minmax(w http.ResponseWriter, r *http.Request) {
-    min := r.FormValue("min")
-    max := r.FormValue("max")
+	min := r.FormValue("min")
+	max := r.FormValue("max")
 
-    rows, err := db.Query("SELECT * FROM items WHERE price BETWEEN ? AND ?", min, max)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    defer rows.Close()
+	rows, err := db.Query("SELECT id, name, content, picture, price FROM items WHERE price BETWEEN ? AND ?", min, max)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
 
     items, err := getItems(rows)
     if err != nil {
@@ -486,24 +478,24 @@ func minmax(w http.ResponseWriter, r *http.Request) {
 }
 
 func getItems(rows *sql.Rows) ([]Items, error) {
-    var items []Items
-    for rows.Next() {
-        var item Items
-        if err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price, &item.Tags); err != nil {
-            return nil, err
-        }
-        items = append(items, item)
-    }
-    if err := rows.Err(); err != nil {
-        return nil, err
-    }
-    return items, nil
+	var items []Items
+	for rows.Next() {
+		var item Items
+		if err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 func reverseItems(items []Items) {
-    for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
-        items[i], items[j] = items[j], items[i]
-    }
+	for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
+		items[i], items[j] = items[j], items[i]
+	}
 }
 
 func getTags() []Tags{
@@ -512,8 +504,8 @@ func getTags() []Tags{
 		return nil
 	}
 	var tags []Tags
-	
-	for rows.Next(){
+
+	for rows.Next() {
 		var tag Tags
 		if err := rows.Scan(&tag.Name); err != nil{
 			return nil
@@ -560,7 +552,6 @@ func main() {
 	r.HandleFunc("/create_item", requireLogin(createItem))
 	r.HandleFunc("/feed", requireLogin(allItems))
 	r.HandleFunc("/tags", requireLogin(tagsPage))
-
 
 	// Serve static files
 	fs := http.FileServer(http.Dir("static/"))
