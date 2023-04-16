@@ -43,6 +43,10 @@ type Tags struct {
 	ID 		int 
 	Name 	string
 }
+type PageData struct {
+	Items[] Items
+	Tags [] Tags
+}
 
 func Connect() error {
 	var err error
@@ -381,10 +385,22 @@ func searchitems(w http.ResponseWriter, r *http.Request) {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
-
-    err = executeTemplate(w, "templates/search.html", items)
+    
+	pages, err := template.ParseFiles("templates/search.html")
     if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+	
+	tags := getTags()
+	var pagedata = PageData{
+		Items: items,
+		Tags: tags,
+	}
+	err = pages.Execute(w, pagedata)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
 }
@@ -399,18 +415,38 @@ func allItems(w http.ResponseWriter, r *http.Request) {
     defer rows.Close()
 
     items, err := getItems(rows)
+
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
 
     reverseItems(items)
-
-    err = executeTemplate(w, "templates/search.html", items)
+    
+	pages, err := template.ParseFiles("templates/search.html")
     if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
+
+	
+	tags := getTags()
+	var pagedata = PageData{
+		Items: items,
+		Tags: tags,
+	}
+	err = pages.Execute(w, pagedata)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+
+    // err = pages.Execute(w, items)
+    // if err != nil {
+	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
+    //     return
+    // }
 }
 
 func minmax(w http.ResponseWriter, r *http.Request) {
@@ -429,12 +465,24 @@ func minmax(w http.ResponseWriter, r *http.Request) {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
-
-    err = executeTemplate(w, "templates/search.html", items)
+	page, err := template.ParseFiles("templates/search.html")
     if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
+
+	
+	tags := getTags()
+	var pagedata = PageData{
+		Items: items,
+		Tags: tags,
+	}
+	err = page.Execute(w, pagedata)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    
 }
 
 func getItems(rows *sql.Rows) ([]Items, error) {
@@ -458,42 +506,36 @@ func reverseItems(items []Items) {
     }
 }
 
-func executeTemplate(w http.ResponseWriter, tmpl string, data interface{}) error {
-    t, err := template.ParseFiles(tmpl)
-    if err != nil {
-        return err
-    }
-    err = t.Execute(w, data)
-    if err != nil {
-        return err
-    }
-    return nil
-}
-
-func tagsPage(w http.ResponseWriter, r *http.Request){
+func getTags() []Tags{
 	rows, err := db.Query("SELECT name FROM tags")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return nil
 	}
 	var tags []Tags
 	
 	for rows.Next(){
 		var tag Tags
 		if err := rows.Scan(&tag.Name); err != nil{
-			http.Error(w,err.Error(), http.StatusInternalServerError)
-			return
+			return nil
 		}
 		tags = append(tags, tag)
 	}
 	if err := rows.Err(); err != nil{
-		http.Error(w,err.Error(), http.StatusInternalServerError)
-		return
+		return nil
 	}
-	err = executeTemplate(w,"templates/tags.html", tags)
-	if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
+	return tags
+}
+
+func tagsPage(w http.ResponseWriter, r *http.Request){
+	t, err := template.ParseFiles("templates/tags.html")
+    if err != nil {
+		   http.Error(w, err.Error(), http.StatusInternalServerError)
         return
+    }
+    err = t.Execute(w,getTags())
+    if err != nil {
+		   http.Error(w, err.Error(), http.StatusInternalServerError)
+        return 
     }
 }
 

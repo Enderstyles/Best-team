@@ -18,15 +18,16 @@
     <!-- place navbar here -->
   </header>
   <main>
-    <div class="row g-3 d-flex justify-content-center">
+    <div class="d-flex justify-content-center">
+      <div class="col-12 col-md-8 d-flex justify-content-center m-2 ">
         {{range .}}
-            <div class="contaner ">
-                
+            <div class="contaner m-1">
                 <form action="/search" method="GET">
                     <input class="nav-link" type="submit" value="{{.Name}}" name="query" id="query">
                 </form>
             </div>
         {{end}}
+      </div>
     </div>
   </main>
   <footer>
