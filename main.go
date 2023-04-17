@@ -300,13 +300,18 @@ func home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	session, err := store.Get(r, "session")
+	authenticated := session.Values["authenticated"]
 	if err != nil {
 		fmt.Println("session error")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	fmt.Println("In home:\nsession: ", session)
-	tpl.Execute(w, nil)
+	fmt.Println("In home:\nsession: ", authenticated)
+	err = tpl.Execute(w, authenticated)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func createItem(w http.ResponseWriter, r *http.Request) {
