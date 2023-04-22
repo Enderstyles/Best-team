@@ -291,29 +291,6 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// Home page
-func home(w http.ResponseWriter, r *http.Request) {
-	tpl, err := template.ParseFiles("views/index.html")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	session, err := store.Get(r, "session")
-	authenticated := session.Values["authenticated"]
-	if err != nil {
-		fmt.Println("session error")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	fmt.Println("In home:\nsession: ", authenticated)
-	err = tpl.Execute(w, authenticated)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-}
-
 func createItem(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("URL:", r.URL.Path)
 
@@ -585,6 +562,29 @@ func rate(w http.ResponseWriter, r *http.Request) {
 
 	// перенаправляем пользователя на страницу товара
 	http.Redirect(w, r, "/items/"+itemID, http.StatusSeeOther)
+}
+
+// Home page
+func home(w http.ResponseWriter, r *http.Request) {
+	tpl, err := template.ParseFiles("views/index.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	session, err := store.Get(r, "session")
+	authenticated := session.Values["authenticated"]
+	if err != nil {
+		fmt.Println("session error")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Println("In home:\nsession: ", authenticated)
+	err = tpl.Execute(w, authenticated)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func main() {
