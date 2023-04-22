@@ -24,6 +24,8 @@ import (
 var db *sql.DB
 
 var store = sessions.NewCookieStore([]byte("secret-key"))
+var t_search = "templates/search.html"
+
 
 type User struct {
 	ID       int
@@ -40,6 +42,12 @@ type Items struct {
 	Price   string
 	Tags    string
 	Rating  float64
+}
+type Comments struct {
+	ID      int
+	User_id int
+	Post_id int
+	Content string
 }
 type Tags struct {
 	ID   int
@@ -157,9 +165,9 @@ func isLoggedIn(r *http.Request) bool {
 		return false
 	}
 	userID, ok := session.Values["userID"].(int)
-	fmt.Println("\nIN isLoggedIn :\nsession:  ", session)
+	
 	if !ok || userID == 0 {
-		fmt.Println("\nIN isLoggedIn:\n", ok, userID)
+		
 		return false
 	}
 	// the user is logged in
@@ -168,9 +176,6 @@ func isLoggedIn(r *http.Request) bool {
 
 func requireLogin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("IN requireLogin:")
-		fmt.Println("\tURL:", r.URL.Path)
-		fmt.Println("\tLogged in:", isLoggedIn(r))
 		// check if user is logged in
 		if !isLoggedIn(r) {
 			// redirect to login page
@@ -230,9 +235,8 @@ func login(w http.ResponseWriter, r *http.Request) {
 	}
 	session.Values["authenticated"] = true
 	session.Values["userID"] = user.ID
-	fmt.Println("\nIn login:\n\tUSER ID:", user.ID)
+	
 	err = session.Save(r, w)
-	fmt.Println("In login:\n session: ", session)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -245,14 +249,12 @@ func login(w http.ResponseWriter, r *http.Request) {
 func profile(w http.ResponseWriter, r *http.Request) {
 	session, err := store.Get(r, "session")
 	if err != nil {
-		fmt.Println("session error")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	// Check if the user is authenticated
 	if _, ok := session.Values["authenticated"]; !ok {
-		fmt.Println("CHECK USER ERROR")
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
@@ -264,7 +266,6 @@ func profile(w http.ResponseWriter, r *http.Request) {
 	user := User{}
 	err = db.QueryRow("SELECT id, full_name, email, username FROM users WHERE id = ?", userID).Scan(&user.ID, &user.Fullname, &user.Email, &user.Username)
 	if err != nil {
-		fmt.Println("GET USER ERROR : ", userID)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -272,7 +273,6 @@ func profile(w http.ResponseWriter, r *http.Request) {
 	// Display the user's information on the profile page
 	t, err := template.ParseFiles("views/profile.html")
 	if err != nil {
-		fmt.Println("template error")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -375,7 +375,7 @@ func searchitems(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pages, err := template.ParseFiles("templates/search.html")
+	pages, err := template.ParseFiles(t_search)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -395,6 +395,10 @@ func searchitems(w http.ResponseWriter, r *http.Request) {
 
 func allItems(w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query("SELECT * FROM items")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	items, err := getItems(rows)
 
 	if err != nil {
@@ -404,7 +408,7 @@ func allItems(w http.ResponseWriter, r *http.Request) {
 
 	reverseItems(items)
 
-	pages, err := template.ParseFiles("templates/search.html")
+	pages, err := template.ParseFiles(t_search)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -420,12 +424,6 @@ func allItems(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	// err = pages.Execute(w, items)
-	// if err != nil {
-	// 	http.Error(w, err.Error(), http.StatusInternalServerError)
-	//     return
-	// }
 }
 
 func minmax(w http.ResponseWriter, r *http.Request) {
@@ -444,7 +442,7 @@ func minmax(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	page, err := template.ParseFiles("templates/search.html")
+	page, err := template.ParseFiles(t_search)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -575,15 +573,43 @@ func home(w http.ResponseWriter, r *http.Request) {
 	session, err := store.Get(r, "session")
 	authenticated := session.Values["authenticated"]
 	if err != nil {
-		fmt.Println("session error")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	fmt.Println("In home:\nsession: ", authenticated)
+	
 	err = tpl.Execute(w, authenticated)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+}
+
+func itemDesk(w http.ResponseWriter, r *http.Request){
+	formVal := r.FormValue("item_desc")
+	data, err := db.Query("SELECT id, name, content, picture, price, tags, rating FROM items WHERE ID = ?", formVal)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer data.Close()
+
+	
+	var item Items
+	for data.Next(){
+		
+		err = data.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price, &item.Tags, &item.Rating)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+
+	page, err := template.ParseFiles("templates/item.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	err = page.Execute(w,item)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
@@ -608,7 +634,8 @@ func main() {
 	r.HandleFunc("/create_item", requireLogin(createItem))
 	r.HandleFunc("/feed", requireLogin(allItems))
 	r.HandleFunc("/tags", requireLogin(tagsPage))
-
+	r.HandleFunc("/item",requireLogin(itemDesk))
+	r.HandleFunc("/rate", rate)
 	// Serve static files
 	fs := http.FileServer(http.Dir("static/"))
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fs))

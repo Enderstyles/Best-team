@@ -65,34 +65,37 @@
     <div class="container">
       <div class="row g-3 d-flex justify-content-center">
         {{range .Items}}
-        <div id="Item" class="col-8 col-md-4 col-xl-3" >
-          <div class="card">
-            {{if ne .Picture "."}}
-            <div class="card-img-top">
-              <img class="img-fluid" alt="pic{{.ID}}" src="/{{.Picture}}">
-            </div>
-            {{end}}
-            <div class="card-body">
-              <h2 class="card-title">{{.Name}}</h2>
-              <p class="card-text">{{.Content}}</p>
-              <p class="card-text"><small class="text-muted">{{.Tags}}</small></p>
-              <p>Price: {{.Price}}</p>
-              <p>Rating: {{.Rating}}</p>
-              <form method="POST" action="/rate/{{.ID}}">
-                <select name="rating">
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="5">5</option>
-                </select>
-              <input type="submit" value="Rate">
-              </form>
-              <br>
-              <a href="#" class="btn btn-primary">add</a>
+        <form id="{{.ID}}" action="/item" method="GET">
+          <input type="hidden" name="item_desc" value="{{.ID}}">
+          <div id="Item" class="col-8 col-md-4 col-xl-3" onclick="document.getElementById('{{.ID}}').submit();">
+            <div class="card">
+              {{if ne .Picture "."}}
+              <div class="card-img-top">
+                <img class="img-fluid" alt="pic{{.ID}}" src="/{{.Picture}}">
+              </div>
+              {{end}}
+              <div class="card-body">
+                <h2 class="card-title">{{.Name}}</h2>
+                <p class="card-text">{{.Content}}</p>
+                <p class="card-text"><small class="text-muted">{{.Tags}}</small></p>
+                <p>Price: {{.Price}}</p>
+                <p>Rating: {{.Rating}}</p>
+                <form method="POST" action="/rate/{{.ID}}">
+                  <select name="rating">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                  </select>
+                  <input type="submit" value="Rate">
+                </form>
+                <br>
+                <a href="#" class="btn btn-primary">add</a>
+              </div>
             </div>
           </div>
-        </div>
+        </form>
         {{else}}
         <p>No items found.</p>
         {{end}}
