@@ -26,7 +26,6 @@ var db *sql.DB
 var store = sessions.NewCookieStore([]byte("secret-key"))
 var t_search = "templates/search.html"
 
-
 type User struct {
 	ID       int
 	Fullname string
@@ -165,9 +164,9 @@ func isLoggedIn(r *http.Request) bool {
 		return false
 	}
 	userID, ok := session.Values["userID"].(int)
-	
+
 	if !ok || userID == 0 {
-		
+
 		return false
 	}
 	// the user is logged in
@@ -235,7 +234,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 	}
 	session.Values["authenticated"] = true
 	session.Values["userID"] = user.ID
-	
+
 	err = session.Save(r, w)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -519,6 +518,7 @@ func rate(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	itemID := vars["id"]
 	ratingValue := r.FormValue("rating")
+
 	// проверяем, что пользователь авторизован
 	session, err := store.Get(r, "session")
 	if err != nil {
@@ -559,7 +559,7 @@ func rate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// перенаправляем пользователя на страницу товара
-	http.Redirect(w, r, "/items/"+itemID, http.StatusSeeOther)
+	http.Redirect(w, r, "/feed", http.StatusSeeOther)
 }
 
 // Home page
@@ -576,7 +576,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	err = tpl.Execute(w, authenticated)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -584,7 +584,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func itemDesk(w http.ResponseWriter, r *http.Request){
+func itemDesk(w http.ResponseWriter, r *http.Request) {
 	formVal := r.FormValue("item_desc")
 	data, err := db.Query("SELECT id, name, content, picture, price, tags, rating FROM items WHERE ID = ?", formVal)
 	if err != nil {
@@ -593,10 +593,9 @@ func itemDesk(w http.ResponseWriter, r *http.Request){
 	}
 	defer data.Close()
 
-	
 	var item Items
-	for data.Next(){
-		
+	for data.Next() {
+
 		err = data.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price, &item.Tags, &item.Rating)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -607,7 +606,7 @@ func itemDesk(w http.ResponseWriter, r *http.Request){
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-	err = page.Execute(w,item)
+	err = page.Execute(w, item)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -634,8 +633,8 @@ func main() {
 	r.HandleFunc("/create_item", requireLogin(createItem))
 	r.HandleFunc("/feed", requireLogin(allItems))
 	r.HandleFunc("/tags", requireLogin(tagsPage))
-	r.HandleFunc("/item",requireLogin(itemDesk))
-	r.HandleFunc("/rate", rate)
+	r.HandleFunc("/item", requireLogin(itemDesk))
+	r.HandleFunc("/rate/{id}", rate).Methods("POST")
 	// Serve static files
 	fs := http.FileServer(http.Dir("static/"))
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fs))
