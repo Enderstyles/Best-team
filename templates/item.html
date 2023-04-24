@@ -21,11 +21,13 @@
       <p class="backHome">
         <a href="/" class="btn btn-lg btn-secondary">Home</a>
       </p>
+      
       <div class="card text-center container w-50 h-100">
+    {{with .Item}}
         {{if ne .Picture "."}}
-        <div class="item-image">
-            <img class="img-fluid" alt="pic{{.ID}}" src="/{{.Picture}}">
-        </div>
+          <div class="item-image">
+              <img class="img-fluid" alt="pic{{.ID}}" src="/{{.Picture}}">
+          </div>
         {{end}}
         <div class="card-body">
           <h3 class="card-title">{{.Name}}</h3>
@@ -46,7 +48,15 @@
           <a href="#" class="btn btn-primary">add</a>
         </div>
       </div>  
+      <form method="POST" action="/postComment">
+        <textarea id="content" name="content"style="resize: none;"></textarea>
+        <input type="hidden" id="item_id" name="item_id" value="{{.ID}}">
+        <button class="btn btn-outline-success" type="submit">Submit</button>
+      </form>
+      {{end}}
     </div>
+    
+    {{ template "comments" . }}
   </main>
   <footer>
     <!-- place footer here -->

@@ -63,12 +63,12 @@
     </header>
     <hr>
     <div class="container">
-      <div class="row g-3 d-flex justify-content-center">
+      <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-3">
         {{range .Items}}
         <form id="{{.ID}}" action="/item" method="GET">
           <input type="hidden" name="item_desc" value="{{.ID}}">
-          <div id="Item" class="col-8 col-md-4 col-xl-3" onclick="document.getElementById('{{.ID}}').submit();">
-            <div class="card">
+          <div onclick="document.getElementById('{{.ID}}').submit();">
+            <div id="Item" class="card">
               {{if ne .Picture "."}}
               <div class="card-img-top">
                 <img class="img-fluid" alt="pic{{.ID}}" src="/{{.Picture}}">

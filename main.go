@@ -43,10 +43,11 @@ type Items struct {
 	Rating  float64
 }
 type Comments struct {
-	ID      int
-	User_id int
-	Post_id int
-	Content string
+	ID       int
+	User_id  int
+	Username string
+	Item_id  int
+	Content  string
 }
 type Tags struct {
 	ID   int
@@ -55,6 +56,10 @@ type Tags struct {
 type PageData struct {
 	Items []Items
 	Tags  []Tags
+}
+type ItemDescData struct {
+	Item     Items
+	Comments []Comments
 }
 type Ratings struct {
 	ID      int
@@ -481,6 +486,7 @@ func reverseItems(items []Items) {
 	}
 }
 
+
 func getTags() []Tags {
 	rows, err := db.Query("SELECT name FROM tags")
 	if err != nil {
@@ -585,31 +591,111 @@ func home(w http.ResponseWriter, r *http.Request) {
 }
 
 func itemDesk(w http.ResponseWriter, r *http.Request) {
-	formVal := r.FormValue("item_desc")
-	data, err := db.Query("SELECT id, name, content, picture, price, tags, rating FROM items WHERE ID = ?", formVal)
+	session, err := store.Get(r, "session")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
-	defer data.Close()
+	userID, ok := session.Values["userID"].(int)
+	if !ok || userID == 0 {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
+	formVal := r.FormValue("item_desc")
+	itemsData, err := db.Query("SELECT id, name, content, picture, price, tags, rating FROM items WHERE ID = ?", formVal)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+	}
+	defer itemsData.Close()
 
 	var item Items
-	for data.Next() {
-
-		err = data.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price, &item.Tags, &item.Rating)
+	for itemsData.Next() {
+		err = itemsData.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price, &item.Tags, &item.Rating)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}
+	print(item.ID)
+	var comments []Comments
+	commentsData, err := db.Query("SELECT * FROM comments WHERE item_id = ? ", item.ID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 
-	page, err := template.ParseFiles("templates/item.html")
+	defer commentsData.Close()
+	for commentsData.Next() {
+		var comment Comments
+		err = commentsData.Scan(&comment.ID, &comment.Item_id, &comment.Username, &comment.User_id, &comment.Content)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		comments = append(comments, comment)
+	}
+	reverseComments(comments)
+	data := ItemDescData{
+		Item:     item,
+		Comments: comments,
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-	err = page.Execute(w, item)
+	page, err := template.ParseFiles("templates/item.html", "templates/comments.html")
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+	err = page.Execute(w, data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+func reverseComments(comments[] Comments){
+	for i, j := 0, len(comments)-1; i < j; i, j = i + 1, j - 1{
+		comments[i], comments[j] = comments[j], comments[i]
+	}
+}
+func postComment(w http.ResponseWriter, r *http.Request){
+	fmt.Println("0")
+	session, _  := store.Get(r,"session")
+	content := r.FormValue("content")
+	itemId := r.FormValue("item_id")
+	userID, ok := session.Values["userID"].(int)
+	fmt.Println("1")
+	if !ok || userID == 0 {
+		return 
+	}
+	fmt.Println("2")
+	usernameSql, err := db.Query("SELECT username FROM users WHERE id = ?", userID)
+	
+	fmt.Println("3")
+	fmt.Println("USERID",userID)
+	
+	if err != nil {
+		http.Error(w, "www", http.StatusInternalServerError)
+		return
+	}
+	fmt.Println("4")
+	var user User
+	for usernameSql.Next(){
+		err = usernameSql.Scan(&user.Username)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	fmt.Println("username", user.Username)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	nickname := user.Username
+	_, err = db.Exec("INSERT INTO comments (user_id, username, item_id, content) VALUES (?, ?, ?, ?)", userID, nickname, itemId, content)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Println("5")
+	defer http.Redirect(w,r, "/feed", http.StatusSeeOther)
 }
 
 func main() {
@@ -631,9 +717,10 @@ func main() {
 	r.HandleFunc("/filter", minmax)
 	r.HandleFunc("/search", requireLogin(searchitems))
 	r.HandleFunc("/create_item", requireLogin(createItem))
+	r.HandleFunc("/postComment", postComment)
 	r.HandleFunc("/feed", requireLogin(allItems))
 	r.HandleFunc("/tags", requireLogin(tagsPage))
-	r.HandleFunc("/item", requireLogin(itemDesk))
+	r.HandleFunc("/item", itemDesk)
 	r.HandleFunc("/rate/{id}", rate).Methods("POST")
 	// Serve static files
 	fs := http.FileServer(http.Dir("static/"))
