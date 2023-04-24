@@ -22,7 +22,7 @@
         <a href="/" class="btn btn-lg btn-secondary">Home</a>
       </p>
       
-      <div class="card text-center container w-50 h-100">
+    <div class="card text-center container w-50 h-100">
     {{with .Item}}
         {{if ne .Picture "."}}
           <div class="item-image">
@@ -48,10 +48,11 @@
           <a href="#" class="btn btn-primary">add</a>
         </div>
       </div>  
-      <form method="POST" action="/postComment">
+      <form method="POST" action="/postComment" class="card text-center container w-50 h-100">
+        <h3 class="card-title">Comment</h3>
         <textarea id="content" name="content"style="resize: none;"></textarea>
         <input type="hidden" id="item_id" name="item_id" value="{{.ID}}">
-        <button class="btn btn-outline-success" type="submit">Submit</button>
+        <button class="btn btn-success" type="submit">Submit</button>
       </form>
       {{end}}
     </div>

@@ -1,10 +1,10 @@
 {{ define "comments" }}
-<div class="container justify-content-center col-8">
+<div class="comments container w-50 h-100">
     
     {{ with .Comments }}
     {{ range . }}
     <div class="row card m-3 justify-content-start">
-        <h5 class="">{{ .Username }}</h5>
+        <h5 class="">@{{ .Username }}</h5>
         <p class="">{{ .Content }}</p>
     </div>
     {{ end }}

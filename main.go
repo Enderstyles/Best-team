@@ -365,8 +365,17 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 func searchitems(w http.ResponseWriter, r *http.Request) {
 	// Getting the search query from the form
 	query := r.FormValue("query")
+	ratingFilter := r.FormValue("ratingFilter")
 
-	rows, err := db.Query("SELECT id, name, content, picture, price, tags, rating FROM items WHERE name LIKE ?", "%"+query+"%")
+	// Creating a query string to filter items by rating if a rating filter is selected
+	var queryString string
+	if ratingFilter != "" {
+		queryString = "SELECT id, name, content, picture, price, tags, rating FROM items WHERE name LIKE ? AND rating = ?"
+	} else {
+		queryString = "SELECT id, name, content, picture, price, tags, rating FROM items WHERE name LIKE ?"
+	}
+
+	rows, err := db.Query(queryString, "%"+query+"%", ratingFilter)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -433,7 +442,7 @@ func allItems(w http.ResponseWriter, r *http.Request) {
 func minmax(w http.ResponseWriter, r *http.Request) {
 	min := r.FormValue("min")
 	max := r.FormValue("max")
-	
+
 	rows, err := db.Query("SELECT id, name, content, picture, price, tags, rating FROM items WHERE price BETWEEN ? AND ?", min, max)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -486,7 +495,6 @@ func reverseItems(items []Items) {
 	}
 }
 
-
 func getTags() []Tags {
 	rows, err := db.Query("SELECT name FROM tags")
 	if err != nil {
@@ -523,7 +531,7 @@ func tagsPage(w http.ResponseWriter, r *http.Request) {
 func rate(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	itemID := vars["id"]
-	ratingValue := r.FormValue("rating")
+	ratingValue := r.FormValue("ratingValue")
 
 	// проверяем, что пользователь авторизован
 	session, err := store.Get(r, "session")
@@ -649,34 +657,34 @@ func itemDesk(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
-func reverseComments(comments[] Comments){
-	for i, j := 0, len(comments)-1; i < j; i, j = i + 1, j - 1{
+func reverseComments(comments []Comments) {
+	for i, j := 0, len(comments)-1; i < j; i, j = i+1, j-1 {
 		comments[i], comments[j] = comments[j], comments[i]
 	}
 }
-func postComment(w http.ResponseWriter, r *http.Request){
+func postComment(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("0")
-	session, _  := store.Get(r,"session")
+	session, _ := store.Get(r, "session")
 	content := r.FormValue("content")
 	itemId := r.FormValue("item_id")
 	userID, ok := session.Values["userID"].(int)
 	fmt.Println("1")
 	if !ok || userID == 0 {
-		return 
+		return
 	}
 	fmt.Println("2")
 	usernameSql, err := db.Query("SELECT username FROM users WHERE id = ?", userID)
-	
+
 	fmt.Println("3")
-	fmt.Println("USERID",userID)
-	
+	fmt.Println("USERID", userID)
+
 	if err != nil {
 		http.Error(w, "www", http.StatusInternalServerError)
 		return
 	}
 	fmt.Println("4")
 	var user User
-	for usernameSql.Next(){
+	for usernameSql.Next() {
 		err = usernameSql.Scan(&user.Username)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -695,7 +703,7 @@ func postComment(w http.ResponseWriter, r *http.Request){
 		return
 	}
 	fmt.Println("5")
-	defer http.Redirect(w,r, "/feed", http.StatusSeeOther)
+	defer http.Redirect(w, r, "/feed", http.StatusSeeOther)
 }
 
 func main() {
