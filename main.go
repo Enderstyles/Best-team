@@ -496,7 +496,7 @@ func reverseItems(items []Items) {
 }
 
 func getTags() []Tags {
-	rows, err := db.Query("SELECT name FROM tags")
+	rows, err := db.Query("SELECT id,name FROM tags")
 	if err != nil {
 		return nil
 	}
@@ -504,7 +504,7 @@ func getTags() []Tags {
 
 	for rows.Next() {
 		var tag Tags
-		if err := rows.Scan(&tag.Name); err != nil {
+		if err := rows.Scan( &tag.ID,&tag.Name); err != nil {
 			return nil
 		}
 		tags = append(tags, tag)
