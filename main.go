@@ -433,7 +433,7 @@ func allItems(w http.ResponseWriter, r *http.Request) {
 func minmax(w http.ResponseWriter, r *http.Request) {
 	min := r.FormValue("min")
 	max := r.FormValue("max")
-
+	
 	rows, err := db.Query("SELECT id, name, content, picture, price, tags, rating FROM items WHERE price BETWEEN ? AND ?", min, max)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
