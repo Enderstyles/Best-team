@@ -450,7 +450,7 @@ func minmax(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
-	//getting items 
+	//getting items
 	items, err := getItems(rows)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -465,7 +465,7 @@ func minmax(w http.ResponseWriter, r *http.Request) {
 	//getting tags
 	tags := getTags()
 
-	//parsing to 
+	//parsing to
 	var pagedata = PageData{
 		Items: items,
 		Tags:  tags,
@@ -507,7 +507,7 @@ func getTags() []Tags {
 
 	for rows.Next() {
 		var tag Tags
-		if err := rows.Scan( &tag.ID,&tag.Name); err != nil {
+		if err := rows.Scan(&tag.ID, &tag.Name); err != nil {
 			return nil
 		}
 		tags = append(tags, tag)
@@ -534,7 +534,7 @@ func tagsPage(w http.ResponseWriter, r *http.Request) {
 func rate(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	itemID := vars["id"]
-	ratingValue := r.FormValue("ratingValue")
+	ratingValue := r.FormValue("rating")
 
 	// проверяем, что пользователь авторизован
 	session, err := store.Get(r, "session")
@@ -611,7 +611,6 @@ func itemDesk(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-
 	//getting id of the item to find everything related to it in DB
 	formVal := r.FormValue("item_desc")
 	itemsData, err := db.Query("SELECT id, name, content, picture, price, tags, rating FROM items WHERE ID = ?", formVal)
@@ -629,7 +628,7 @@ func itemDesk(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}
-	
+
 	//Forming the array of comment related to that item
 	var comments []Comments
 	commentsData, err := db.Query("SELECT * FROM comments WHERE item_id = ? ", item.ID)
@@ -666,7 +665,7 @@ func itemDesk(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	//executing 
+	//executing
 	err = page.Execute(w, data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -686,14 +685,14 @@ func postComment(w http.ResponseWriter, r *http.Request) {
 	if !ok || userID == 0 {
 		return
 	}
-	
+
 	//finding username in DB
 	usernameSql, err := db.Query("SELECT username FROM users WHERE id = ?", userID)
 	if err != nil {
 		http.Error(w, "www", http.StatusInternalServerError)
 		return
 	}
-	
+
 	//parsing data from DB to variable
 	var user User
 	for usernameSql.Next() {
@@ -703,15 +702,15 @@ func postComment(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	
-	//inserting comment to DB 
+
+	//inserting comment to DB
 	nickname := user.Username
 	_, err = db.Exec("INSERT INTO comments (user_id, username, item_id, content) VALUES (?, ?, ?, ?)", userID, nickname, itemId, content)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	defer http.Redirect(w, r, "/feed", http.StatusSeeOther)
 }
 
