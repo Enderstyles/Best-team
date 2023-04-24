@@ -1,4 +1,19 @@
-# Some preparetions 
+# Introduction to the service
+We are the "Best Team" developing a web application for e-commerce written in GoLang language for buying and selling various types of goods. On our web application, you can place your product in our feed, as well as give reviews and ratings to other products. Here you can find and sell products that you like!
+
+# Team members description, contributions of each team member
+## Medeubekov Sergazy ID:200103154 :
+- Created a user rating system, now users can evaluate the product and the average rating of the product from all users will be visible.
+- Created filtering by product rating, users can search for products depending on their rating
+- Created a user profile page, after logging in, the user now sees his profile and can log out of it
+
+## Askhat Al-Aziz ID:200103463 :
+- Creator of filtering py price
+- Creator of ItemPage where you can see detailed information about item
+- Creator of Comments System
+- Debugger and fixer of the project
+
+# Some preparetions: Explanation how to run the code
 Find "golang_project.sql" and run it on your D B
 !!! We are using xampp and MySql !!!
 
