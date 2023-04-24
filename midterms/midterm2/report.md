@@ -16,6 +16,8 @@ We are the "Best Team" developing a web application for e-commerce written in Go
 # Some preparetions: Explanation how to run the code
 Find "golang_project.sql" and run it on your D B
 !!! We are using xampp and MySql !!!
+For the search page to work properly. You need to install xampp at "C:/" and create the folder "pictures" at "C:/xampp/htdocs/pictures "
+Once you have created the database, you can run a terminal in main.go and use "go run main.go" to run the code and go to the localhost page: http://localhost:3000
 
 
 ## MinMax function
