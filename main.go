@@ -440,28 +440,32 @@ func allItems(w http.ResponseWriter, r *http.Request) {
 }
 
 func minmax(w http.ResponseWriter, r *http.Request) {
+	//getting values from form
 	min := r.FormValue("min")
 	max := r.FormValue("max")
-
+	//getting rows of items with price between min and max
 	rows, err := db.Query("SELECT id, name, content, picture, price, tags, rating FROM items WHERE price BETWEEN ? AND ?", min, max)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
-
+	//getting items 
 	items, err := getItems(rows)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	//parsing template
 	page, err := template.ParseFiles(t_search)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
+	//getting tags
 	tags := getTags()
+
+	//parsing to 
 	var pagedata = PageData{
 		Items: items,
 		Tags:  tags,
@@ -471,7 +475,6 @@ func minmax(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 }
 
 func getItems(rows *sql.Rows) ([]Items, error) {
@@ -608,6 +611,8 @@ func itemDesk(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 
+
+	//getting id of the item to find everything related to it in DB
 	formVal := r.FormValue("item_desc")
 	itemsData, err := db.Query("SELECT id, name, content, picture, price, tags, rating FROM items WHERE ID = ?", formVal)
 	if err != nil {
@@ -616,6 +621,7 @@ func itemDesk(w http.ResponseWriter, r *http.Request) {
 	}
 	defer itemsData.Close()
 
+	//initializing item
 	var item Items
 	for itemsData.Next() {
 		err = itemsData.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price, &item.Tags, &item.Rating)
@@ -623,14 +629,16 @@ func itemDesk(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}
-	print(item.ID)
+	
+	//Forming the array of comment related to that item
 	var comments []Comments
 	commentsData, err := db.Query("SELECT * FROM comments WHERE item_id = ? ", item.ID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-
 	defer commentsData.Close()
+
+	//going through every comment and appending to massive
 	for commentsData.Next() {
 		var comment Comments
 		err = commentsData.Scan(&comment.ID, &comment.Item_id, &comment.Username, &comment.User_id, &comment.Content)
@@ -639,7 +647,11 @@ func itemDesk(w http.ResponseWriter, r *http.Request) {
 		}
 		comments = append(comments, comment)
 	}
+
+	//reversing array to show resent commets first
 	reverseComments(comments)
+
+	//inserting data to custom struct to send it to template
 	data := ItemDescData{
 		Item:     item,
 		Comments: comments,
@@ -647,11 +659,14 @@ func itemDesk(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
-	page, err := template.ParseFiles("templates/item.html", "templates/comments.html")
 
+	//parsing templates
+	page, err := template.ParseFiles("templates/item.html", "templates/comments.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+
+	//executing 
 	err = page.Execute(w, data)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -663,26 +678,23 @@ func reverseComments(comments []Comments) {
 	}
 }
 func postComment(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("0")
+	//getting values
 	session, _ := store.Get(r, "session")
 	content := r.FormValue("content")
 	itemId := r.FormValue("item_id")
 	userID, ok := session.Values["userID"].(int)
-	fmt.Println("1")
 	if !ok || userID == 0 {
 		return
 	}
-	fmt.Println("2")
+	
+	//finding username in DB
 	usernameSql, err := db.Query("SELECT username FROM users WHERE id = ?", userID)
-
-	fmt.Println("3")
-	fmt.Println("USERID", userID)
-
 	if err != nil {
 		http.Error(w, "www", http.StatusInternalServerError)
 		return
 	}
-	fmt.Println("4")
+	
+	//parsing data from DB to variable
 	var user User
 	for usernameSql.Next() {
 		err = usernameSql.Scan(&user.Username)
@@ -691,18 +703,15 @@ func postComment(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	fmt.Println("username", user.Username)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	
+	//inserting comment to DB 
 	nickname := user.Username
 	_, err = db.Exec("INSERT INTO comments (user_id, username, item_id, content) VALUES (?, ?, ?, ?)", userID, nickname, itemId, content)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	fmt.Println("5")
+	
 	defer http.Redirect(w, r, "/feed", http.StatusSeeOther)
 }
 
