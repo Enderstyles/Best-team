@@ -555,6 +555,18 @@ func rate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// проверяем, оценил ли пользователь уже этот товар
+	var count int
+	err = db.QueryRow("SELECT COUNT(*) FROM ratings WHERE user_id=? AND item_id=?", userID, itemID).Scan(&count)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if count > 0 {
+		http.Error(w, "You have already rated this item", http.StatusBadRequest)
+		return
+	}
+
 	// добавляем оценку в базу данных
 	_, err = db.Exec("INSERT INTO ratings (user_id, item_id, value) VALUES (?, ?, ?)", userID, itemID, rating)
 	if err != nil {
