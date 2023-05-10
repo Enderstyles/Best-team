@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"unicode"
-
+	
 	_ "github.com/go-sql-driver/mysql"
 	//"github.com/gorilla/context"
 	"github.com/gorilla/mux"
@@ -368,17 +368,50 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func searchitems(w http.ResponseWriter, r *http.Request) {
-	// Getting the search query from the form
 	query := r.FormValue("query")
+	// Creating a query string to filter items by rating if a rating filter is selected
+	
+	queryString := "SELECT id, name, content, picture, price, tags, rating FROM items WHERE name LIKE ?"
+
+	rows, err := db.Query(queryString, "%"+query+"%")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+	items, err := getItems(rows)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	pages, err := template.ParseFiles(t_search)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	tags := getTags()
+	var pagedata = PageData{
+		Items: items,
+		Tags:  tags,
+	}
+	err = pages.Execute(w, pagedata)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+func searchWithRating(w http.ResponseWriter, r *http.Request) {
+	// Getting the search query from the form
+	fmt.Println("\n\n1")
+	query := r.FormValue("query")
+	
 	ratingFilter := r.FormValue("ratingFilter")
 
 	// Creating a query string to filter items by rating if a rating filter is selected
-	var queryString string
-	if ratingFilter != "" {
-		queryString = "SELECT id, name, content, picture, price, tags, rating FROM items WHERE name LIKE ? AND rating = ?"
-	} else {
-		queryString = "SELECT id, name, content, picture, price, tags, rating FROM items WHERE name LIKE ?"
-	}
+	
+	queryString := "SELECT id, name, content, picture, price, tags, rating FROM items WHERE name LIKE ? AND rating = ?"
 
 	rows, err := db.Query(queryString, "%"+query+"%", ratingFilter)
 	if err != nil {
@@ -781,6 +814,7 @@ func main() {
 
 	r.HandleFunc("/filter", minmax)
 	r.HandleFunc("/search", requireLogin(searchitems))
+	r.HandleFunc("/search_with_rating",requireLogin(searchWithRating))
 	r.HandleFunc("/create_item", requireLogin(createItem))
 	r.HandleFunc("/postComment", postComment)
 	r.HandleFunc("/feed", requireLogin(allItems))
