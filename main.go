@@ -32,6 +32,7 @@ type User struct {
 	Email    string
 	Username string
 	Password string
+	Role     int 				
 }
 type Items struct {
 	ID      int
@@ -67,6 +68,10 @@ type Ratings struct {
 	Item_id int
 	Value   int
 }
+type HomePageData struct {
+	Auth 		bool
+	TypeOfUser 	int
+}
 
 func Connect() error {
 	var err error
@@ -94,7 +99,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	username := r.FormValue("username")
 	password := r.FormValue("password")
-
+	userType := r.FormValue("userType")
 	// Check for required fields
 	if fullName == "" || email == "" || username == "" || password == "" {
 		http.Error(w, "Required field is missing", http.StatusBadRequest)
@@ -151,7 +156,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO users (full_name, email, username, password) VALUES (?, ?, ?, ?)", fullName, email, username, hashedPassword)
+	_, err = db.Exec("INSERT INTO users (full_name, email, username, password, role) VALUES (?, ?, ?, ?,)", fullName, email, username, hashedPassword, userType)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -291,7 +296,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
+	
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -598,15 +603,47 @@ func home(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
 	session, err := store.Get(r, "session")
-	authenticated := session.Values["authenticated"]
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	
+	authenticated, ok := session.Values["authenticated"].(bool)
+	if !ok {
+		authenticated = false
+	}
+	userID, ok := session.Values["userID"].(int)
+	if !ok {
+		userID = 0
+	}
+	
+	var user User
+	var data HomePageData
+	if authenticated {
+		row := db.QueryRow("SELECT role FROM users WHERE id = ?", userID)
+	
+		err = row.Scan(&user.Role)
+	
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		data = HomePageData{
+			Auth: authenticated,
+			TypeOfUser: user.Role,
+		}
+	
+	}else {
 
-	err = tpl.Execute(w, authenticated)
+		data = HomePageData{
+			Auth: authenticated,
+			TypeOfUser: 0,
+		}
+	
+	}
+	err = tpl.Execute(w, data)
+	
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
