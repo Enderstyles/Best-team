@@ -100,6 +100,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 	userType := r.FormValue("userType")
+	fmt.Println("\n\n",userType)
 	// Check for required fields
 	if fullName == "" || email == "" || username == "" || password == "" {
 		http.Error(w, "Required field is missing", http.StatusBadRequest)
