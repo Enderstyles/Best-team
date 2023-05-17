@@ -15,12 +15,15 @@
     .table {
         background-color: #ffffff;
     }
+    .payment-head {
+        text-align: center;
+    }
     </style>
 </head>
 <body>
     <div class="basket-table container w-50 h-100">
     <p class="backHome">
-        <a href="/feed" class="btn btn-lg btn-secondary">Home</a>
+        <a href="/feed" class="btn btn-lg btn-secondary">Back</a>
     </p>
     
     <h1 class="basket-head">My Basket</h1>
@@ -49,6 +52,11 @@
 
     <form action="/clear" method="post">
         <button class="btn btn-danger" type="submit">Clear</button>
+    </form>
+
+    <form action="/payment" method="post">
+        <button class="btn btn-primary" type="submit" name="payment" value="cash">Cash Payment</button>
+        <button class="btn btn-primary" type="submit" name="payment" value="card">Card Payment</button>
     </form>
     </div>
 </body>

@@ -8,8 +8,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
+	"time"
 	"unicode"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -83,6 +85,14 @@ type Basket struct {
 	Items           []BasketItem
 	TotalDurability int
 }
+type CardPayment struct {
+	address string
+}
+type CashPayment struct {
+	cardNumber int
+	expiryDate time.Time
+	cvv        int
+}
 
 func Connect() error {
 	var err error
@@ -92,6 +102,20 @@ func Connect() error {
 		fmt.Println(err)
 	}
 	return nil
+}
+
+func renderTemplate(w http.ResponseWriter, tmpl string, data interface{}) {
+	tmpl = filepath.Join("views", tmpl)
+	t, err := template.ParseFiles(tmpl)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = t.Execute(w, data)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
@@ -714,6 +738,71 @@ func clearBasketHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/basket", http.StatusSeeOther)
 }
 
+func paymentHandler(w http.ResponseWriter, r *http.Request) {
+	paymentOption := r.FormValue("payment")
+
+	switch paymentOption {
+	case "cash":
+		// Render the cash payment page
+		renderTemplate(w, "cash.html", nil)
+	case "card":
+		// Render the card payment page
+		renderTemplate(w, "card.html", nil)
+	default:
+		// Invalid payment option selected
+		http.Error(w, "Invalid payment option", http.StatusBadRequest)
+	}
+}
+
+func completePaymentHandler(w http.ResponseWriter, r *http.Request) {
+	paymentOption := r.FormValue("payment")
+
+	err := r.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	switch paymentOption {
+	case "cash":
+		// Get the delivery address from the form
+		address := r.FormValue("address")
+
+		_, err = db.Exec("INSERT INTO cashpayment (address) VALUES (?)", address)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Perform the cash payment logic and delivery process
+		// For example: display a success message and the delivery details
+		fmt.Fprintf(w, "Cash payment successful! Your items will be delivered to: %s", address)
+	case "card":
+		// Get the card details from the form
+		cardNumber := r.FormValue("cardNumber")
+		expiryDate := r.FormValue("expiryDate")
+		cvv := r.FormValue("cvv")
+
+		_, err = db.Exec("INSERT INTO cardpayment (cardnumber, expirydate, cvv) VALUES (?, ?, ?)", cardNumber, expiryDate, cvv)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Perform the card payment logic
+		// For example: display a success message and the card details
+		fmt.Fprintf(w, "Card payment successful! Card details: %s, Expiry: %s, CVV: %s", cardNumber, expiryDate, cvv)
+	default:
+		// Invalid payment option selected
+		http.Error(w, "Invalid payment option", http.StatusBadRequest)
+		return
+	}
+
+	// Clear the basket by resetting the items and total durability
+	basket.Items = make([]BasketItem, 0)
+	basket.TotalDurability = 0
+}
+
 // Home page
 func home(w http.ResponseWriter, r *http.Request) {
 	tpl, err := template.ParseFiles("views/index.html")
@@ -909,6 +998,8 @@ func main() {
 	r.HandleFunc("/add-to-basket", addToBasket).Methods("POST")
 	r.HandleFunc("/basket", viewBasket).Methods("GET")
 	r.HandleFunc("/clear", clearBasketHandler)
+	r.HandleFunc("/payment", paymentHandler)
+	r.HandleFunc("/complete-payment", completePaymentHandler)
 	// Serve static files
 	fs := http.FileServer(http.Dir("static/"))
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fs))

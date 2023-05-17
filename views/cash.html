@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cash Payment</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+		integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+		crossorigin="anonymous">
+	<link rel="stylesheet" href="static/css/main.css">	
+
+    <style>
+    .basket-head {
+        text-align: center;
+    }
+    .table {
+        background-color: #ffffff;
+    }
+    .payment-head {
+        text-align: center;
+    }
+    </style>
+</head>
+<body>
+    <div class="basket-table container w-50 h-100">
+    <p class="backHome">
+        <a href="/basket" class="btn btn-lg btn-secondary">Back</a>
+    </p>
+        <div class="card text-center">
+            <div class="card-body">
+                <h1 class="card-title">Cash Payment</h1>
+                <p>Please provide your delivery address:</p>
+                <form action="/complete-payment" method="post">
+                    <label for="address">Delivery Address:</label>
+                    <input type="text" id="address" name="address" required>
+                    <br>
+                    <button class="btn btn-success" type="submit">Confirm Payment</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
