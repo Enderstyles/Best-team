@@ -156,7 +156,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = db.Exec("INSERT INTO users (full_name, email, username, password, role) VALUES (?, ?, ?, ?,)", fullName, email, username, hashedPassword, userType)
+	_, err = db.Exec("INSERT INTO users (full_name, email, username, password, role) VALUES (?, ?, ?, ?, ?)", fullName, email, username, hashedPassword, userType)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
