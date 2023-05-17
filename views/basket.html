@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Basket</title>
+	<!-- Bootstrap CSS -->
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+		integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
+		crossorigin="anonymous">
+	<link rel="stylesheet" href="static/css/main.css">	
+
+    <style>
+    .basket-head {
+        text-align: center;
+    }
+    .table {
+        background-color: #ffffff;
+    }
+    </style>
+</head>
+<body>
+    <div class="basket-table container w-50 h-100">
+    <p class="backHome">
+        <a href="/feed" class="btn btn-lg btn-secondary">Home</a>
+    </p>
+    
+    <h1 class="basket-head">My Basket</h1>
+
+    <table class="table">
+        <thead class="thead-dark">
+            <tr>
+            <th>Name</th>
+            <th>Quantity</th>
+            <th>Price</th>
+            </tr>
+        </thead>
+        {{range .Items}}
+        <tbody>
+            <tr>
+            <td>{{.Item.Name}}</td>
+            <td>{{.Quantity}}</td>
+            <td>{{.Item.Price}}</td>
+            </tr>
+        </tbody>
+        
+        {{end}}
+    </table>
+    
+    <p class="total-price">Total Price: {{.TotalDurability}}</p>
+
+    <form action="/clear" method="post">
+        <button class="btn btn-danger" type="submit">Clear</button>
+    </form>
+    </div>
+</body>
+</html>

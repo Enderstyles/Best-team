@@ -100,7 +100,12 @@
                   <input type="submit" value="Rate">
                 </form>
                 <br>
-                <a href="#" class="btn btn-primary">add</a>
+                <form action="/add-to-basket" method="POST">
+                  <input type="hidden" name="itemID" value="{{.ID}}">
+                  <label for="quantity">Quantity:</label>
+                  <input type="number" name="quantity" value="1" min="1">
+                  <button class="btn btn-success" type="submit">Add to Basket</button>
+              </form>
               </div>
             </div>
           </div>

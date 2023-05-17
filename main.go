@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"unicode"
-	
+
 	_ "github.com/go-sql-driver/mysql"
 	//"github.com/gorilla/context"
 	"github.com/gorilla/mux"
@@ -26,22 +26,25 @@ var db *sql.DB
 var store = sessions.NewCookieStore([]byte("secret-key"))
 var t_search = "templates/search.html"
 
+var basket Basket
+
 type User struct {
 	ID       int
 	Fullname string
 	Email    string
 	Username string
 	Password string
-	Role     int 				
+	Role     int
 }
 type Items struct {
-	ID      int
-	Name    string
-	Content string
-	Picture string
-	Price   string
-	Tags    string
-	Rating  float64
+	ID         int
+	Name       string
+	Content    string
+	Picture    string
+	Price      string
+	Tags       string
+	Rating     float64
+	Durability int
 }
 type Comments struct {
 	ID       int
@@ -69,8 +72,16 @@ type Ratings struct {
 	Value   int
 }
 type HomePageData struct {
-	Auth 		bool
-	TypeOfUser 	int
+	Auth       bool
+	TypeOfUser int
+}
+type BasketItem struct {
+	Item     Items
+	Quantity int
+}
+type Basket struct {
+	Items           []BasketItem
+	TotalDurability int
 }
 
 func Connect() error {
@@ -100,7 +111,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 	userType := r.FormValue("userType")
-	fmt.Println("\n\n",userType)
+	fmt.Println("\n\n", userType)
 	// Check for required fields
 	if fullName == "" || email == "" || username == "" || password == "" {
 		http.Error(w, "Required field is missing", http.StatusBadRequest)
@@ -297,7 +308,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -371,8 +382,8 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 func searchitems(w http.ResponseWriter, r *http.Request) {
 	query := r.FormValue("query")
 	// Creating a query string to filter items by rating if a rating filter is selected
-	
-	queryString := "SELECT id, name, content, picture, price, tags, rating FROM items WHERE name LIKE ?"
+
+	queryString := "SELECT id, name, content, picture, price, tags, rating, durability FROM items WHERE name LIKE ?"
 
 	rows, err := db.Query(queryString, "%"+query+"%")
 	if err != nil {
@@ -407,12 +418,12 @@ func searchWithRating(w http.ResponseWriter, r *http.Request) {
 	// Getting the search query from the form
 	fmt.Println("\n\n1")
 	query := r.FormValue("query")
-	
+
 	ratingFilter := r.FormValue("ratingFilter")
 
 	// Creating a query string to filter items by rating if a rating filter is selected
-	
-	queryString := "SELECT id, name, content, picture, price, tags, rating FROM items WHERE name LIKE ? AND rating = ?"
+
+	queryString := "SELECT id, name, content, picture, price, tags, rating, durability FROM items WHERE name LIKE ? AND rating = ?"
 
 	rows, err := db.Query(queryString, "%"+query+"%", ratingFilter)
 	if err != nil {
@@ -483,7 +494,7 @@ func minmax(w http.ResponseWriter, r *http.Request) {
 	min := r.FormValue("min")
 	max := r.FormValue("max")
 	//getting rows of items with price between min and max
-	rows, err := db.Query("SELECT id, name, content, picture, price, tags, rating FROM items WHERE price BETWEEN ? AND ?", min, max)
+	rows, err := db.Query("SELECT id, name, content, picture, price, tags, rating, durability FROM items WHERE price BETWEEN ? AND ?", min, max)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -520,7 +531,7 @@ func getItems(rows *sql.Rows) ([]Items, error) {
 	var items []Items
 	for rows.Next() {
 		var item Items
-		if err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price, &item.Tags, &item.Rating); err != nil {
+		if err := rows.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price, &item.Tags, &item.Rating, &item.Durability); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -630,6 +641,79 @@ func rate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/feed", http.StatusSeeOther)
 }
 
+func addToBasket(w http.ResponseWriter, r *http.Request) {
+	itemIDStr := r.FormValue("itemID")
+	quantityStr := r.FormValue("quantity")
+
+	itemID, err := strconv.Atoi(itemIDStr)
+	if err != nil {
+		http.Error(w, "Invalid item ID", http.StatusBadRequest)
+		return
+	}
+
+	quantity, err := strconv.Atoi(quantityStr)
+	if err != nil {
+		http.Error(w, "Invalid quantity", http.StatusBadRequest)
+		return
+	}
+
+	// Retrieve the item from the database using the item ID
+	var item Items
+	row := db.QueryRow("SELECT id, name, content, picture, price, tags, rating, durability FROM items WHERE id = ?", itemID)
+	err = row.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price, &item.Tags, &item.Rating, &item.Durability)
+	if err == sql.ErrNoRows {
+		http.Error(w, "Item not found", http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Create a new basket item
+	basketItem := BasketItem{
+		Item:     item,
+		Quantity: quantity,
+	}
+
+	price, err := strconv.Atoi(item.Price)
+	if err != nil {
+		http.Error(w, "Invalid Price", http.StatusBadRequest)
+		return
+	}
+
+	// Update the total durability of the basket
+	basket.TotalDurability += price * quantity
+
+	// Add the item to the basket
+	basket.Items = append(basket.Items, basketItem)
+
+	// Redirect the user to the basket page
+	http.Redirect(w, r, "/basket", http.StatusSeeOther)
+}
+
+func viewBasket(w http.ResponseWriter, r *http.Request) {
+	pages, err := template.ParseFiles("views/basket.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = pages.Execute(w, basket)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func clearBasketHandler(w http.ResponseWriter, r *http.Request) {
+	// Clear the basket by resetting the items and total durability
+	basket.Items = make([]BasketItem, 0)
+	basket.TotalDurability = 0
+
+	// Redirect the user back to the basket page
+	http.Redirect(w, r, "/basket", http.StatusSeeOther)
+}
+
 // Home page
 func home(w http.ResponseWriter, r *http.Request) {
 	tpl, err := template.ParseFiles("views/index.html")
@@ -642,7 +726,7 @@ func home(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	authenticated, ok := session.Values["authenticated"].(bool)
 	if !ok {
 		authenticated = false
@@ -651,33 +735,33 @@ func home(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		userID = 0
 	}
-	
+
 	var user User
 	var data HomePageData
 	if authenticated {
 		row := db.QueryRow("SELECT role FROM users WHERE id = ?", userID)
-	
+
 		err = row.Scan(&user.Role)
-	
+
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		data = HomePageData{
-			Auth: authenticated,
+			Auth:       authenticated,
 			TypeOfUser: user.Role,
 		}
-	
-	}else {
+
+	} else {
 
 		data = HomePageData{
-			Auth: authenticated,
+			Auth:       authenticated,
 			TypeOfUser: 0,
 		}
-	
+
 	}
 	err = tpl.Execute(w, data)
-	
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -696,7 +780,7 @@ func itemDesk(w http.ResponseWriter, r *http.Request) {
 
 	//getting id of the item to find everything related to it in DB
 	formVal := r.FormValue("item_desc")
-	itemsData, err := db.Query("SELECT id, name, content, picture, price, tags, rating FROM items WHERE ID = ?", formVal)
+	itemsData, err := db.Query("SELECT id, name, content, picture, price, tags, rating, durability FROM items WHERE ID = ?", formVal)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 
@@ -706,7 +790,7 @@ func itemDesk(w http.ResponseWriter, r *http.Request) {
 	//initializing item
 	var item Items
 	for itemsData.Next() {
-		err = itemsData.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price, &item.Tags, &item.Rating)
+		err = itemsData.Scan(&item.ID, &item.Name, &item.Content, &item.Picture, &item.Price, &item.Tags, &item.Rating, &item.Durability)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
@@ -815,13 +899,16 @@ func main() {
 
 	r.HandleFunc("/filter", minmax)
 	r.HandleFunc("/search", requireLogin(searchitems))
-	r.HandleFunc("/search_with_rating",requireLogin(searchWithRating))
+	r.HandleFunc("/search_with_rating", requireLogin(searchWithRating))
 	r.HandleFunc("/create_item", requireLogin(createItem))
 	r.HandleFunc("/postComment", postComment)
 	r.HandleFunc("/feed", requireLogin(allItems))
 	r.HandleFunc("/tags", requireLogin(tagsPage))
 	r.HandleFunc("/item", itemDesk)
 	r.HandleFunc("/rate/{id}", rate).Methods("POST")
+	r.HandleFunc("/add-to-basket", addToBasket).Methods("POST")
+	r.HandleFunc("/basket", viewBasket).Methods("GET")
+	r.HandleFunc("/clear", clearBasketHandler)
 	// Serve static files
 	fs := http.FileServer(http.Dir("static/"))
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fs))
