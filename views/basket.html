@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 	<title>Basket</title>
 	<!-- Bootstrap CSS -->
@@ -54,10 +54,15 @@
         <button class="btn btn-danger" type="submit">Clear</button>
     </form>
 
-    <form action="/payment" method="post">
-        <button class="btn btn-primary" type="submit" name="payment" value="cash">Cash Payment</button>
-        <button class="btn btn-primary" type="submit" name="payment" value="card">Card Payment</button>
-    </form>
+    <div class="d-flex justify-content-center m-3">
+        <form action="/cash">
+            <input class="btn btn-primary" value="Cash Payment" type="submit" name="query" id="query">
+        </form>
+        <form action="/card">
+            <input class="btn btn-primary" value="Card Payment" type="submit" name="query" id="query">
+        </form>
+    </div>
+    
     </div>
 </body>
 </html>
