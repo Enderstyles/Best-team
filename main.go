@@ -29,6 +29,7 @@ var store = sessions.NewCookieStore([]byte("secret-key"))
 var t_search = "templates/search.html"
 
 var basket Basket
+var address string
 
 type User struct {
 	ID       int
@@ -738,16 +739,31 @@ func clearBasketHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/basket", http.StatusSeeOther)
 }
 
-func cashHandler(w http.ResponseWriter, r *http.Request){
+func paymentHandler(w http.ResponseWriter, r *http.Request) {
+	paymentOption := r.FormValue("payment")
+	fmt.Println("\n\n", paymentOption)
+	switch paymentOption {
+	case "cash":
+		// Render the cash payment page
+		cashHandler(w, r)
+	case "card":
+		// Render the card payment page
+		cardHandler(w, r)
+	default:
+		// Invalid payment option selected
+		http.Error(w, "Invalid payment option", http.StatusBadRequest)
+	}
+}
 
+func cashHandler(w http.ResponseWriter, r *http.Request) {
+	renderTemplate(w, "cash.html", nil)
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	// Get the delivery address from the form
-	address := r.FormValue("address")
-
+	address = r.FormValue("address")
+	fmt.Println("\n\naddress", address)
 	_, err = db.Exec("INSERT INTO cashpayment (address) VALUES (?)", address)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -760,7 +776,8 @@ func cashHandler(w http.ResponseWriter, r *http.Request){
 	basket.Items = make([]BasketItem, 0)
 	basket.TotalDurability = 0
 }
-func cardHandler(w http.ResponseWriter, r *http.Request){
+func cardHandler(w http.ResponseWriter, r *http.Request) {
+	renderTemplate(w, "card.html", nil)
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -783,6 +800,7 @@ func cardHandler(w http.ResponseWriter, r *http.Request){
 	basket.Items = make([]BasketItem, 0)
 	basket.TotalDurability = 0
 }
+
 // func completePaymentHandler(w http.ResponseWriter, r *http.Request) {
 // 	paymentOption := r.FormValue("payment")
 
@@ -794,9 +812,9 @@ func cardHandler(w http.ResponseWriter, r *http.Request){
 // 	fmt.Println("\n\n",paymentOption)
 // 	switch paymentOption {
 // 	case "cash":
-		
+
 // 	case "card":
-		
+
 // 	default:
 // 		// Invalid payment option selected
 // 		http.Error(w, "Invalid payment option", http.StatusBadRequest)
@@ -1002,8 +1020,9 @@ func main() {
 	r.HandleFunc("/rate/{id}", rate).Methods("POST")
 	r.HandleFunc("/add-to-basket", addToBasket).Methods("POST")
 	r.HandleFunc("/basket", viewBasket).Methods("GET")
+	r.HandleFunc("/payment", paymentHandler)
 	r.HandleFunc("/card", cardHandler)
-	r.HandleFunc("/cash",cashHandler)
+	r.HandleFunc("/cash", cashHandler)
 	r.HandleFunc("/clear", clearBasketHandler)
 	// Serve static files
 	fs := http.FileServer(http.Dir("static/"))
