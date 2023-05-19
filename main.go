@@ -136,7 +136,6 @@ func register(w http.ResponseWriter, r *http.Request) {
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 	userType := r.FormValue("userType")
-	fmt.Println("\n\n", userType)
 	// Check for required fields
 	if fullName == "" || email == "" || username == "" || password == "" {
 		http.Error(w, "Required field is missing", http.StatusBadRequest)
@@ -441,7 +440,6 @@ func searchitems(w http.ResponseWriter, r *http.Request) {
 }
 func searchWithRating(w http.ResponseWriter, r *http.Request) {
 	// Getting the search query from the form
-	fmt.Println("\n\n1")
 	query := r.FormValue("query")
 
 	ratingFilter := r.FormValue("ratingFilter")
@@ -775,6 +773,7 @@ func cashHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Cash payment successful! Your items will be delivered to: %s", address)
 	basket.Items = make([]BasketItem, 0)
 	basket.TotalDurability = 0
+
 }
 func cardHandler(w http.ResponseWriter, r *http.Request) {
 	renderTemplate(w, "card.html", nil)
